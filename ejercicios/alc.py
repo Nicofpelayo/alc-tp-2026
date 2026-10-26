@@ -5,7 +5,7 @@ import numpy as np
 def esCuadrada(A):
     return len(A) == len(A[0])
 
-def esSimetrica(A, tol=1e-8):
+def esSimetrica(A, tol=1e-7):
     if not esCuadrada(A):
         return False
 
@@ -645,6 +645,7 @@ def diagRH(A, tol=1e-15, K=1000):
 
     B = multiplicar(H_v1, multiplicar(A, traspuesta(H_v1)))
     AA = B[1:n,1:n]
+    
     SS, DD = diagRH(AA, tol, K)
     
     D = np.eye(n)
