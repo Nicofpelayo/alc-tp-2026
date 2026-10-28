@@ -62,16 +62,12 @@ print(resolverDLT3D(Q))
 M = resolverDLT3D(Q)
 #ejercicio 2.c:
 def devolverMatricesCalibracion3d(M):
-    squareM = M[:2][:]
-    M_inverse = alc.inversa(M)
+    squareM = M[:, :3]
+    lastColumnM = M[:, 3][:]
+    M_inverse = alc.inversa(squareM)
     Q, U = alc.QR_con_GS(M_inverse)
     R = alc.traspuesta(Q)
     K = alc.inversa(U)
-    b = np.zeros(3)
-    b[2] = M[2][3]
-    #calcular resto de bs
-    return     
-    
-    
+    t = alc.calcularAx(K, lastColumnM)
     return R, t, K
-print(alc.QR_con_GS(alc.inversa(M[:, :3])))
+print(devolverMatricesCalibracion3d(M))
