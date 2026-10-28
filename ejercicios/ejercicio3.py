@@ -31,9 +31,20 @@ def minimo_cuadrado_homogeneo(A):
     _, _, hatV = alc.svd_reducida(A)
     
     # Tomamos la última columna de V como nuestro b, correspondiente al mínimo valor singular (ver ej 1)b), algo de cuadrados minimos).
-    b = hatV[:, hatV.shape[1]] 
+    b = hatV[:, hatV.shape[1] - 1] 
 
     return b
+
+def producto_vectorial(u,v):
+    """
+    u y v dos vectores en R^3
+    Devuelve w = u x v
+    """
+    w1 = u[1] * v[2] - u[2] * v[1]
+    w2 = u[2] * v[0] - u[0] * v[2]
+    w3 = u[0] * v[1] - u[1] * v[0]
+
+    return np.array([w1, w2, w3])
 
 def resolverDLT2D(imgPts, objPts):
     """
@@ -115,7 +126,7 @@ def calcularMatrizK2D(A):
 
     K = alc.inversa(alc.traspuesta(L))
 
-    # Como B se conoce solo salvo escala, se normaliza K dividiéndola
+    # Como B se conoce solo salvo escala, se normaliza K dividiendola
     # por K_33 para que K_33 = 1
     K = K / K[2,2]
 
@@ -126,4 +137,18 @@ def obtenerPose2D(Hj, K):
     Devuelve la pose de la vista j como Rj y tj
     a partir de la matriz K y la Hj correspondiente.
     """
-    pass
+    K_inv = alc.inversa(K)
+    s = alc.norma(alc.inversa(K),2)
+    lambd = 1 / s
+
+    r1 = lambd * K_inv * Hj[:,1]
+    r2 = lambd * K_inv * Hj[:,2]
+    r3 = producto_vectorial(r1,r2)
+    tj = lambd * K_inv * Hj[:,3]
+
+    Rj = np.hstack((
+        r1.reshape((-1,1)),
+        r2.reshape((-1,1)),
+        r3.reshape((-1,1))))
+
+    return Rj, tj
