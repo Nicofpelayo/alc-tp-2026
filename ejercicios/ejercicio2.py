@@ -59,6 +59,19 @@ def resolverDLT3D(Q):
     return np.reshape(m,(3,4))
 
 print(resolverDLT3D(Q))
-
+M = resolverDLT3D(Q)
 #ejercicio 2.c:
-
+def devolverMatricesCalibracion3d(M):
+    squareM = M[:2][:]
+    M_inverse = alc.inversa(M)
+    Q, U = alc.QR_con_GS(M_inverse)
+    R = alc.traspuesta(Q)
+    K = alc.inversa(U)
+    b = np.zeros(3)
+    b[2] = M[2][3]
+    #calcular resto de bs
+    return     
+    
+    
+    return R, t, K
+print(alc.QR_con_GS(alc.inversa(M[:, :3])))
