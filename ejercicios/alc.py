@@ -645,7 +645,7 @@ def diagRH(A, tol=1e-15, K=1000):
 
     B = multiplicar(H_v1, multiplicar(A, traspuesta(H_v1)))
     AA = B[1:n,1:n]
-    AA = (AA + transponer(AA)) / 2
+    AA = (AA + traspuesta(AA)) / 2
 
     SS, DD = diagRH(AA, tol, K)
     
