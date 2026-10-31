@@ -68,6 +68,6 @@ def devolverMatricesCalibracion3d(M):
     Q, U = alc.QR_con_GS(M_inverse)
     R = alc.traspuesta(Q)
     K = alc.inversa(U)
-    t = alc.calcularAx(K, lastColumnM)
+    t = alc.calcularAx(U, lastColumnM)
     return R, t, K
 print(devolverMatricesCalibracion3d(M))
