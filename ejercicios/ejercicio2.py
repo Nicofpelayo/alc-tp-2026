@@ -3,41 +3,6 @@ import pandas as pd
 import numpy as np
 import alc
 
-#ejercicio 1.b:
-def minimo_autovalor(D):
-    autovalores=[]
-    for i in range(len(D)):
-        autovalores.append(D[i][i])
-    minimo=autovalores[0]
-    indice=0
-    for i in range (len(autovalores)):
-        if autovalores[i]<minimo:
-            minimo=autovalores[i]
-            indice=i
-    return minimo,indice
-
-
-#Buscamos la solución de la minimización usando la SDV
-#el m en el que se obtiene el mínimo mTQTQm
-def minimizacion(Q): 
-    """Q=UsigmaV*, entonces Qtranpuesta por Q=V poe(sigma transpuesta por sigma) por V tranpuesta
-    Q=VDVT(con D diagonal con los valores singulares al cuadrado)
-    Como V es unitaria V transpuesta=V-1, entonces se tiene una diagonalización
-    de Q transpuesta por Q, y como Q transpuesta por Q es simétrica y real usamos
-    la función diagRH del módulo alc""" 
-    V,D=alc.diagRH(alc.multiplicar(alc.traspuesta(Q),Q))
-    """Si x=VTm, mTQTQM=xTDx, si despejamos m obtenemos que m=Vx
-    Como xTDx=sumatoria de xi**2 por (valor singular i**2)
-    siempre va a ser mayor o igual que la sumatoria de
-    xi **2 por el valor singular mas chico al cuadrado;
-    como la norma de x al cuadrado es 1, xTDx tiene su mínimo con el 
-    último valor singular al cuadrado, que se obtiene si x=e12
-    """
-    _,i=minimo_autovalor(D)
-    x=np.zeros(12)
-    x[i]=1 
-    m=alc.calcularAx(V,x)
-    return m 
 #ejercicio 2.a:
     
 def obtenerQ3d(imgPts, objPts):
@@ -53,21 +18,77 @@ objPts = pd.read_csv('../template-alumnos/calib/3d/p_W_corners.txt', sep=',', he
 imgPts = pd.read_csv('../template-alumnos/calib/3d/detected_corners.txt', sep=r'\s+', header=None).to_numpy()               
 Q=obtenerQ3d(imgPts[0],objPts)
 
+
+def indice_min(v):
+    minimo=v[0]
+    indice=0
+    for i in range(len(v)):
+        if v[i]<minimo:
+            minimo=v[i]
+            indice=i
+    return indice
+
+def minimizacion(Q):
+    U, sigma, V = alc.svd_reducida(Q)
+    indice=indice_min(sigma)
+    m=V[:,indice]
+    return m
+    
+m = minimizacion(Q)
+
+
 #ejercicio 2.b:
 def resolverDLT3D(Q):
     m=minimizacion(Q)
     return np.reshape(m,(3,4))
 
-print(resolverDLT3D(Q))
-M = resolverDLT3D(Q)
-#ejercicio 2.c:
-def devolverMatricesCalibracion3d(M):
-    squareM = M[:, :3]
-    lastColumnM = M[:, 3][:]
-    M_inverse = alc.inversa(squareM)
-    Q, U = alc.QR_con_GS(M_inverse)
-    R = alc.traspuesta(Q)
-    K = alc.inversa(U)
-    t = alc.calcularAx(U, lastColumnM)
+
+def determinante_3x3(A):
+    #recorrido por primera fila
+    valor= (A[0,0]*(A[1,1]*A[2,2] - A[1,2]*A[2,1])
+          - A[0,1]*(A[1,0]*A[2,2] - A[1,2]*A[2,0])
+          + A[0,2]*(A[1,0]*A[2,1] - A[1,1]*A[2,0]))
+    return valor
+#ejercicio 2.c y 2.d:
+def signo(n):
+    if n<0:
+        return -1
+    elif n>0:
+        return 1
+    return 0
+
+def devolverMatricesCalibracion3d(M,opcional=0):
+    matriz_KR = M[:,:3]
+    ultima_columna_M = M[:,3]
+    R_traspuesta, inv_K = alc.QR_con_GS(alc.inversa(matriz_KR))
+    R = alc.traspuesta(R_traspuesta)
+    K = alc.inversa(inv_K)
+    t = alc.calcularAx(inv_K, ultima_columna_M)
+    D = np.zeros((3, 3))
+    s1 = signo(K[0, 0] * K[2, 2])
+    s2 = signo(K[1, 1] * K[2, 2])
+    sR = signo(determinante_3x3(R))
+    d3 = s1 * s2 * sR
+    d1 = s1 * d3
+    d2 = s2 * d3
+    D[0, 0] = d1
+    D[1, 1] = d2
+    D[2, 2] = d3
+    R = alc.multiplicar(D, R)
+    K = alc.multiplicar(K, D)
+    t = alc.calcularAx(D, t) 
+    K = K / K[2, 2]
+    # Ejercicio 2.d 
+    if opcional == 1 or opcional == 3: 
+        promedio = (K[0,0] + K[1,1]) / 2 
+        K[0,0] = promedio  
+        K[1,1] = promedio 
+    if opcional == 2 or opcional == 3: 
+        K[0,1] = 0 
     return R, t, K
-print(devolverMatricesCalibracion3d(M))
+    
+M=resolverDLT3D(Q)
+print(devolverMatricesCalibracion3d(M,opcional=0))
+   
+#con opcional 1,2,3 no se reconstruye M
+

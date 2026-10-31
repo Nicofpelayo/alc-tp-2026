@@ -16,70 +16,22 @@ proyections = pd.read_csv('../template-alumnos/calib/3d/detected_corners.txt', s
 Q = buildQ(coords, proyections[0])
 print(Q)
 print(Q.shape)
-"""
-def encontrar_m_MC(Q):
-    Np = 100
 
-    m_randoms = np.random.uniform(low=-100, high=100, size=(Np, 12))
-    m_randoms = alc.normaliza(m_randoms,2)
-
-    Qt_Q = alc.multiplicar(alc.traspuesta(Q), Q)
-
-    min = -1
-    m_min = None
-    for m in m_randoms:
-        mt = alc.traspuesta(m)
-        Qt_Q_m = alc.multiplicar(Qt_Q, m)
-        mt_Qt_Q_m = alc.multiplicar(mt, Qt_Q_m)
-
-        if min == -1 or min > mt_Qt_Q_m:
-            min = mt_Qt_Q_m
-            m_min = m
-
-    return m_min
-
-m = encontrar_m_MC(Q)
-print(m)
-"""
 #ejercicio 1.b:
-def minimo_autovalor(D):
-    autovalores=[]
-    for i in range(len(D)):
-        autovalores.append(D[i][i])
-    minimo=autovalores[0]
+def indice_min(v):
+    minimo=v[0]
     indice=0
-    for i in range (len(autovalores)):
-        if autovalores[i]<minimo:
-            minimo=autovalores[i]
+    for i in range(len(v)):
+        if v[i]<minimo:
+            minimo=v[i]
             indice=i
-    return minimo,indice
+    return indice
 
-
-#Buscamos la solución de la minimización usando la SDV
-#el m en el que se obtiene el mínimo mTQTQm
-def minimizacion(Q): 
-    """Q=UsigmaV*, entonces Qtranpuesta por Q=V poe(sigma transpuesta por sigma) por V tranpuesta
-    Q=VDVT(con D diagonal con los valores singulares al cuadrado)
-    Como V es unitaria V transpuesta=V-1, entonces se tiene una diagonalización
-    de Q transpuesta por Q, y como Q transpuesta por Q es simétrica y real usamos
-    la función diagRH del módulo alc""" 
-    V,D=alc.diagRH(alc.multiplicar(alc.traspuesta(Q),Q))
-    """Si x=VTm, mTQTQM=xTDx, si despejamos m obtenemos que m=Vx
-    Como xTDx=sumatoria de xi**2 por (valor singular i**2)
-    siempre va a ser mayor o igual que la sumatoria de
-    xi **2 por el valor singular mas chico al cuadrado;
-    como la norma de x al cuadrado es 1, xTDx tiene su mínimo con el 
-    último valor singular al cuadrado, que se obtiene si x=e12
-    """
-    _,i=minimo_autovalor(D)
-    x=np.zeros(12)
-    x[i]=1 
-    m=alc.calcularAx(V,x)
-    return m 
-
-m=minimizacion(Q)
+def minimizacion(Q):
+    U, sigma, V = alc.svd_reducida(Q)
+    indice=indice_min(sigma)
+    m=V[:,indice]
+    return m
+    
+m = minimizacion(Q)
 print(m)
-alc.norma(m,2)
-#cambie la tolerancia de esSimetrica a 1e-7 para que pase , hay que chequear
-
-
