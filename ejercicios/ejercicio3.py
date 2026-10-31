@@ -17,35 +17,6 @@ def obtenerQ2d(imgPts, objPts):
         Q[i * 2 + 1] = np.hstack(([0, 0, 0], P_i, -1 * v_i * P_i))
     return Q
 
-
-#coords = pd.read_csv('template-alumnos/calib/coplanar/p_W_corners.txt', sep=',', header=None).to_numpy()
-#proyections = pd.read_csv('template-alumnos/calib/coplanar/detected_corners.txt', sep=' ', header=None).to_numpy()                  # Test para verificar que buildQ funcione, no se obtienen las proyecciones asi
-#Q = buildQ(coords, proyections[0])
-#print(Q)
-#print(Q.shape)
-
-def minimo_cuadrado_homogeneo(A):
-    """
-    Resuelve min_{||b||_2 = 1} Ab
-    """
-    _, _, hatV = alc.svd_reducida(A)
-    
-    # Tomamos la última columna de V como nuestro b, correspondiente al mínimo valor singular (ver ej 1)b), algo de cuadrados minimos).
-    b = hatV[:, hatV.shape[1] - 1] 
-
-    return b
-
-def producto_vectorial(u,v):
-    """
-    u y v dos vectores en R^3
-    Devuelve w = u x v
-    """
-    w1 = u[1] * v[2] - u[2] * v[1]
-    w2 = u[2] * v[0] - u[0] * v[2]
-    w3 = u[0] * v[1] - u[1] * v[0]
-
-    return np.array([w1, w2, w3])
-
 def resolverDLT2D(imgPts, objPts):
     """
     Calcula la homografía H correspondientes a puntos del plano (objPts) y de la imagen (imgPts) mediante el algoritmo DLT 2D.
@@ -53,7 +24,7 @@ def resolverDLT2D(imgPts, objPts):
     #Q de tamaño 2Nx9
     Q = obtenerQ2d(imgPts, objPts)
 
-    h = minimo_cuadrado_homogeneo(Q) 
+    h = alc.minimo_cuadrado_homogeneo(Q) 
     
     H = h.reshape(3,3) 
     return H
@@ -115,7 +86,7 @@ def calcularMatrizK2D(A):
     """
     Recibe la matriz A y calcula la matriz K
     """
-    b = minimo_cuadrado_homogeneo(A)
+    b = alc.minimo_cuadrado_homogeneo(A)
 
     B = b.reshape(3,3)
 
@@ -143,7 +114,7 @@ def obtenerPose2D(Hj, K):
 
     r1 = lambd * K_inv * Hj[:,1]
     r2 = lambd * K_inv * Hj[:,2]
-    r3 = producto_vectorial(r1,r2)
+    r3 = alc.producto_vectorial(r1,r2)
     tj = lambd * K_inv * Hj[:,3]
 
     Rj = np.hstack((

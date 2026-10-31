@@ -833,3 +833,28 @@ def svd_reducida(A,k="max",tol=1e-15):
     hatV = hatV[:,:k]
 
     return hatU, hatSig, hatV
+
+
+### -------------------------------------- Aux extras para el TP --------------------------------------
+
+def minimo_cuadrado_homogeneo(A):
+    """
+    Resuelve min_{||b||_2 = 1} Ab
+    """
+    _, _, hatV = svd_reducida(A)
+    
+    # Tomamos la última columna de V como nuestro b, correspondiente al mínimo valor singular (ver ej 1)b), algo de cuadrados minimos).
+    b = hatV[:, hatV.shape[1] - 1] 
+
+    return b
+
+def producto_vectorial(u,v):
+    """
+    u y v dos vectores en R^3
+    Devuelve w = u x v
+    """
+    w1 = u[1] * v[2] - u[2] * v[1]
+    w2 = u[2] * v[0] - u[0] * v[2]
+    w3 = u[0] * v[1] - u[1] * v[0]
+
+    return np.array([w1, w2, w3])
