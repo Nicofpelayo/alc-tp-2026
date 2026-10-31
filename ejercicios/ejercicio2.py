@@ -13,9 +13,10 @@ def obtenerQ3d(imgPts, objPts):
         Q[i * 2 + 1] = np.hstack(([0, 0, 0, 0], ncoords , - 1 * imgPts[i * 2 + 1] * ncoords))
     return Q
 
+filepath_base = '../template-alumnos/calib/3d'
 
-objPts = pd.read_csv('../template-alumnos/calib/3d/p_W_corners.txt', sep=',', header=None).to_numpy()
-imgPts = pd.read_csv('../template-alumnos/calib/3d/detected_corners.txt', sep=r'\s+', header=None).to_numpy()               
+objPts = pd.read_csv(f'{filepath_base}/p_W_corners.txt', sep=',', header=None).to_numpy()
+imgPts = pd.read_csv(f'{filepath_base}/detected_corners.txt', sep=r'\s+', header=None).to_numpy()               
 Q=obtenerQ3d(imgPts[0],objPts)
 
 
