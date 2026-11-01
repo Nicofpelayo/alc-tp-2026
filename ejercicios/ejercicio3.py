@@ -10,24 +10,92 @@ def obtenerQ2d(imgPts, objPts):
     Q = np.zeros((2 * n, 9))
     for i in range(n):                                         # Para cada valor medido generamos las 2 filas correspondientes
         P_i = np.hstack((objPts[i], 1))       # https://numpy-org.translate.goog/doc/stable/reference/generated/numpy.hstack.html?_x_tr_sl=en&_x_tr_tl=es&_x_tr_hl=es&_x_tr_pto=tc
-        u_i = imgPts[i*2]
-        v_i = imgPts[i*2 + 1]
+        u_i = imgPts[i,0]
+        v_i = imgPts[i,1]
 
         Q[i * 2] = np.hstack((P_i, [0, 0, 0], -1 * u_i * P_i))
         Q[i * 2 + 1] = np.hstack(([0, 0, 0], P_i, -1 * v_i * P_i))
     return Q
 
+def obtenerTHartley(pts):
+    # 1. Hay una traslación de los puntos de manera que 
+    # su centroide cae en el origen de coordenadas
+    # 
+    # 2. Todos los puntos son normalizados de manera que
+    # el promedio de sus distancias al origen sqrt(2).
+    
+    # Calculo de centroide (traslacion)
+    xs = pts[:,0]
+    ys = pts[:,1]
+    cx = np.mean(xs)
+    cy = np.mean(ys)
+    c = np.array([cx, cy])
+    
+    # Promedio de distancias (escala)
+    distancias = [alc.norma(pts[i] - c,2) for i in range(len(pts))]
+    dist_promedio = np.mean(distancias)
+    s = np.sqrt(2) / dist_promedio #escala
+
+    #      [1 0 −c_x]         [s 0 0]
+    # Tr = [0 1 −c_y],   S =  [0 s 0]
+    #      [0 0   1 ]         [0 0 1]
+    #
+    #            [1 0 −c_x] [s 0 0]   [s 0 -s·c_x]
+    # T = S·TR = [0 1 −c_y]·[0 s 0] = [0 s -s·c_y]
+    #            [0 0   1 ] [0 0 1]   [0 0    1  ]
+    #
+    #                                [1 0 c_x] [1/s  0  0]   [1/s  0   c_x]
+    # T^{-1} = Tr^{-1} · S^{-1}  =   [0 1 c_y]·[ 0  1/s 0] = [ 0  1/s  c_y]
+    #                                [0 0  1 ] [ 0   0  1]   [ 0   0    1 ]
+    #
+    # Tr es una traslacion, con lo cual la inversa es trasladarlo de nuevo a donde estaba (i.e. invertir los signos)
+    # S es una escala => la inversa es dividir por lo que se escalo
+
+    T = np.array(
+        [[s, 0, -s*cx],
+         [0, s, -s*cy],
+         [0, 0, 1]])
+
+    T_inv = np.array(
+            [[1/s,  0 , cx],
+             [ 0 , 1/s, cy],
+             [ 0 ,  0 ,  1]])
+
+    return T, T_inv
+
+def resolverDLT2D_PtsNormalizados(imgPts, objPts):
+    #Q de tamaño 2Nx9
+    Q = obtenerQ2d(imgPts, objPts)
+    h = alc.minimo_cuadrado_homogeneo(Q) 
+    
+    return h.reshape(3,3) 
+
+def normalizarPts(T, pts):
+    normalizados = []
+
+    for i in range(pts.shape[0]):
+        p_i = np.hstack((pts[i], 1))
+        normalizados.append(alc.multiplicar(T, p_i))
+
+    return np.array(normalizados)[:,:-1]
+
 def resolverDLT2D(imgPts, objPts):
     """
     Calcula la homografía H correspondientes a puntos del plano (objPts) y de la imagen (imgPts) mediante el algoritmo DLT 2D.
     """
-    #Q de tamaño 2Nx9
-    Q = obtenerQ2d(imgPts, objPts)
-
-    h = alc.minimo_cuadrado_homogeneo(Q) 
     
-    H = h.reshape(3,3) 
-    return H
+    # Normalizar usando Hartley
+    Timg, Timg_inv = obtenerTHartley(imgPts)
+    Tworld, _ = obtenerTHartley(objPts)
+
+    
+    imgPtsNormalizados = normalizarPts(Timg, imgPts)
+    objPtsNormalizados = normalizarPts(Tworld, objPts)
+
+    H_hat = resolverDLT2D_PtsNormalizados(imgPtsNormalizados, objPtsNormalizados)
+
+    # H = Timg^-1 H_hat Tworld
+    return alc.multiplicar(Timg_inv, alc.multiplicar(H_hat, Tworld))
 
 def v_ij(H, i, j):
     """

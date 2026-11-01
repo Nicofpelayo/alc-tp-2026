@@ -842,11 +842,17 @@ def minimo_cuadrado_homogeneo(A):
     """
     Resuelve min_{||b||_2 = 1} Ab
     """
-    _, _, hatV = svd_reducida(A)
+    # Con SVD sale igual, pero hay que tomar la svd COMPLETA,
+    # NO la svd_reducida. La reducida descarta los que tengan σ < tol,
+    # y como el b queremos que esté en el nucleo, tendra σ ≈ 0 y es descartado
+    #
+    # En su lugar, planteamos la diagonalización de Q.T Q usando diagRH,
+    # que tambien deja ordenados los autovectores en orden descendente
+    # en relacion a sus |λ| = σ², y seguimos la misma idea de tomar el 
+    # de más a la derecha
     
-    # Tomamos la última columna de V como nuestro b, correspondiente al mínimo valor singular (ver ej 1)b), algo de cuadrados minimos).
-    b = hatV[:, hatV.shape[1] - 1] 
-
+    S, _ = diagRH(multiplicar(traspuesta(A),A))
+    b = S[:, -1]
     return b
 
 def producto_vectorial(u,v):
