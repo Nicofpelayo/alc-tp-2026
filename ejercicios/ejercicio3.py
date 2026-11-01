@@ -179,13 +179,16 @@ def obtenerPose2D(Hj, K):
     a partir de la matriz K y la Hj correspondiente.
     """
     K_inv = alc.inversa(K)
-    s = alc.norma(alc.inversa(K),2)
+    c1, c2, c3 = Hj[:, 0], Hj[:, 1], Hj[:, 2]
+    K_inv_c1 = alc.multiplicar(K_inv, c1)
+
+    s = alc.norma(K_inv_c1, 2)
     lambd = 1 / s
 
-    r1 = lambd * K_inv * Hj[:,1]
-    r2 = lambd * K_inv * Hj[:,2]
+    r1 = lambd * K_inv_c1
+    r2 = lambd * alc.multiplicar(K_inv, c2)
+    tj = lambd * alc.multiplicar(K_inv, c3)
     r3 = alc.producto_vectorial(r1,r2)
-    tj = lambd * K_inv * Hj[:,3]
 
     Rj = np.hstack((
         r1.reshape((-1,1)),
