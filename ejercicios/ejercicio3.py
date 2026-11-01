@@ -156,12 +156,14 @@ def calcularMatrizK2D(A):
     """
     b = alc.minimo_cuadrado_homogeneo(A)
 
-    B = b.reshape(3,3)
+    B = np.array([[b[0], b[1], b[3]],
+                  [b[1], b[2], b[4]],
+                  [b[3], b[4], b[5]]])
 
     if not alc.esSDP(B):
         B = (-1) * B
 
-    L, _, _ = alc.calculaLDV(B)
+    L = alc.calculaCholesky(B)
 
     K = alc.inversa(alc.traspuesta(L))
 

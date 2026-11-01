@@ -463,6 +463,29 @@ def esSDP(A,atol=1e-8) :
 
     return True
 
+# Ej extra (Ej 5)
+
+def calculaCholesky(A, atol=1e-10):
+    """
+    Verifica si la matriz es SDP y en caso afirmativo devuelve 
+    la matriz R asociada a A. Caso contrario devuelve None.
+
+    En los casos en los que A es SDP, se puede factorizar
+    en la forma R·R.T, donde R es una matriz triangular inferior tal que R = L·sqrt(D),
+    donde sqrt(D) es una matriz diagonal con las raices de los elementos de la diagonal
+    de la matriz D, y L y D resultan de la factorización LDV de A.
+    """
+    if not esSDP(A):
+        return None
+
+    L, D, L_t = calculaLDV(A)
+
+    D_sqrt = D
+    for i in range(D.shape[0]):
+        D_sqrt[i,i] = np.sqrt(D_sqrt[i,i])
+    
+    return multiplicar(L, D_sqrt) # R = L·D^{1/2}
+
 ### -------------------------------------------- Labo 05 --------------------------------------------
 
 def QR_con_GS(A,tol=1e-12,retorna_nops=False):
