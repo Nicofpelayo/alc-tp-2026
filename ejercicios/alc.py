@@ -888,3 +888,13 @@ def producto_vectorial(u,v):
     w3 = u[0] * v[1] - u[1] * v[0]
 
     return np.array([w1, w2, w3])
+
+def producto_interno(u,v):
+    """
+    u y v dos vectores en R^n
+    Devuelve en número real resultado del producto interno u.T v
+    """
+    return multiplicar(traspuesta(u), v)
+
+def iszero(a, atol=1e-7):
+    return np.abs(a) <= atol
