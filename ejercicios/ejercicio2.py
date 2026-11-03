@@ -89,7 +89,7 @@ def devolverMatricesCalibracion3d(M,opcional=0):
     return R, t, K
     
 M=resolverDLT3D(Q)
-print(devolverMatricesCalibracion3d(M,opcional=0))
+#print(devolverMatricesCalibracion3d(M,opcional=0))
    
 #con opcional 1,2,3 no se reconstruye M
 
