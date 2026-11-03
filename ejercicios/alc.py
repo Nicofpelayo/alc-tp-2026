@@ -659,7 +659,11 @@ def diagRH(A, tol=1e-15, K=1000):
     v1, lambda1, _ = metpot2k(A, tol, K)
     e1 = canonico(n,0)
     e1_v1 = e1 - v1
-    H_v1 = np.eye(n) - 2*(multiplicar(e1_v1, traspuesta(e1_v1)) / norma(e1_v1, 2)**2)
+    norma_e1_v1 = norma(e1_v1, 2)
+    if iszero(norma_e1_v1):
+        H_v1 = np.eye(n)
+    else:
+        H_v1 = np.eye(n) - 2*(multiplicar(e1_v1, traspuesta(e1_v1)) / norma_e1_v1**2)
 
     if n == 2:
         S = H_v1
@@ -878,6 +882,9 @@ def minimo_cuadrado_homogeneo(A):
     b = S[:, -1]
     return b
 
+def pseudoinversa(A):
+    svd_reducida
+
 def producto_vectorial(u,v):
     """
     u y v dos vectores en R^3
@@ -896,5 +903,5 @@ def producto_interno(u,v):
     """
     return multiplicar(traspuesta(u), v)
 
-def iszero(a, atol=1e-7):
+def iszero(a, atol=1e-12):
     return np.abs(a) <= atol
