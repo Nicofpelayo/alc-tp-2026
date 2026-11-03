@@ -3,10 +3,10 @@ import alc
 
 def raicesCuadradasDeCCuadrado(Re, Im):
     # Buscamos λ y μ
-    # ||C||^2 = Re^2 + Im^2
-    #         = (λ^2 − μ^2)^2 + (2λμ)^2
-    #         = λ^4 − 2λ^2μ^2 + μ^4 + 4λ^2μ^2
-    #         = (λ^2 + μ^2)^2
+    # ||C^2||^2 = Re^2 + Im^2
+    #           = (λ^2 − μ^2)^2 + (2λμ)^2
+    #           = λ^4 − 2λ^2μ^2 + μ^4 + 4λ^2μ^2
+    #           = (λ^2 + μ^2)^2
     #   
     # Sea r = sqrt(Re^2 + Im^2). Tenemos
     #   r  = sqrt(Re^2 + Im^2) = sqrt((λ^2 + μ^2)^2) = λ^2 + μ^2
@@ -26,8 +26,9 @@ def raicesCuadradasDeCCuadrado(Re, Im):
 
     r = np.sqrt(Re*Re + Im*Im)
     if alc.iszero(r):
-        mu = lambd = 0
-    elif r > 0:
+        return 0, 0
+    
+    if Re > 0:
         lambd = np.sqrt((r + Re) / 2)
         mu = Im / (2*lambd)
     else:
@@ -55,4 +56,25 @@ def calculoLambdaMu(I0,J0):
 
     lambd, mu = raicesCuadradasDeCCuadrado(Re, Im)
     return lambd, mu
+
+def calcularSalidaPOSIT(Is, Js, fx, m0, M0):
+    """
+    Devuelve una pose correspondiente a una 
+    posible solución i, j, k, Z0, R, t de (Is, Js)
+    """
+    norm_I = alc.norma(Is, 2)
+    norm_J = alc.norma(Js, 2)
+
+    i = Is / norm_I
+    j = Js / norm_J
+    k = alc.producto_vectorial(i,j)
+    Z0 = fx / norm_I
+
+    R = np.array(i,j,k)
+
+    # Obtenemos t
+    X0 = (Z0 / fx) * m0[0] # x0
+    Y0 = (Z0 / fx) * m0[1] # y0
+    T = np.array(X0, Y0, Z0)
     
+
