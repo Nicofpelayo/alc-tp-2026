@@ -883,7 +883,18 @@ def minimo_cuadrado_homogeneo(A):
     return b
 
 def pseudoinversa(A):
-    svd_reducida
+    """
+    Devuelve la pseudoinversa de A
+    """
+    hatU, hatSig, hatV = svd_reducida(A)
+
+    # hatSig cuadrada y diagonal por svd_reducida
+    r = len(hatSig)
+    Sig_inv = np.zeros((r, r))
+    for i in range(r):
+        Sig_inv[i,i] = 1 / hatSig[i]
+
+    return multiplicar(multiplicar(hatV, Sig_inv), traspuesta(hatU))
 
 def producto_vectorial(u,v):
     """
