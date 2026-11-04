@@ -643,6 +643,9 @@ def metpot2k(A, tol=1e-15, K=1000, devolver_err=False):
         return v, aval, k, err
     return v, aval, k
 
+
+def iszero(a, atol=1e-12):
+    return np.abs(a) <= atol
 def diagRH(A, tol=1e-15, K=1000):
     """
     A una matriz simétrica de n x n
@@ -747,6 +750,7 @@ def nucleo(A, tol=1e-15):
 
     Nu = np.array(Nu)
     return traspuesta(Nu) if len(Nu) > 0 else Nu
+
 
 def crea_rala(listado, m_filas, n_columnas, tol=1e-15):
     """
@@ -914,5 +918,3 @@ def producto_interno(u,v):
     """
     return multiplicar(traspuesta(u), v)
 
-def iszero(a, atol=1e-12):
-    return np.abs(a) <= atol
