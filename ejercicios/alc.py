@@ -918,3 +918,302 @@ def producto_interno(u,v):
     """
     return multiplicar(traspuesta(u), v)
 
+
+
+### -------------------------------------------- TP: Ejercicio 3 --------------------------------------------
+
+def obtenerQ2d(imgPts, objPts):
+    """
+    Arma la matriz Q del sistema Qh = 0 (ecuación 11) para estimar una homografía.
+
+    Parámetros:
+        imgPts: array (n, 2) con los puntos en la imagen (u, v)
+        objPts: array (n, 2) con los mismos puntos en el plano (U, V)
+    Devuelve:
+        array (2n, 9) con dos filas por cada punto
+    """
+    n = objPts.shape[0]
+    Q = np.zeros((2 * n, 9))
+    for i in range(n):
+        # Para cada punto generamos sus 2 filas
+        P_i = np.hstack((objPts[i], 1))
+        u_i = imgPts[i, 0]
+        v_i = imgPts[i, 1]
+
+        Q[i * 2] = np.hstack((P_i, [0, 0, 0], -1 * u_i * P_i))
+        Q[i * 2 + 1] = np.hstack(([0, 0, 0], P_i, -1 * v_i * P_i))
+    return Q
+
+def obtenerTHartley(pts):
+    """
+    Calcula la transformación de normalización de Hartley: traslada los puntos para que su centroide
+    quede en el origen y los escala para que la distancia promedio al origen sea sqrt(2).
+
+    Parámetros:
+        pts: array (n, 2) con los puntos a normalizar
+    Devuelve:
+        T: matriz 3x3 de normalización (en coordenadas homogéneas)
+        T_inv: su inversa
+    """
+    # Calculo de centroide (traslacion)
+    xs = pts[:, 0]
+    ys = pts[:, 1]
+    cx = np.mean(xs)
+    cy = np.mean(ys)
+    c = np.array([cx, cy])
+
+    # Promedio de distancias (escala)
+    distancias = [norma(pts[i] - c, 2) for i in range(len(pts))]
+    dist_promedio = np.mean(distancias)
+    s = np.sqrt(2) / dist_promedio
+
+    #      [1 0 −c_x]         [s 0 0]
+    # Tr = [0 1 −c_y],   S =  [0 s 0]
+    #      [0 0   1 ]         [0 0 1]
+    #
+    #            [s 0 -s·c_x]
+    # T = S·Tr = [0 s -s·c_y]
+    #            [0 0    1  ]
+    #
+    #                              [1/s  0   c_x]
+    # T^{-1} = Tr^{-1} · S^{-1}  = [ 0  1/s  c_y]
+    #                              [ 0   0    1 ]
+    #
+    # Tr es una traslacion, con lo cual la inversa es trasladarlo de nuevo a donde estaba (i.e. invertir los signos)
+    # S es una escala => la inversa es dividir por lo que se escalo
+
+    T = np.array(
+        [[s, 0, -s*cx],
+         [0, s, -s*cy],
+         [0, 0, 1]])
+
+    T_inv = np.array(
+            [[1/s,  0 , cx],
+             [ 0 , 1/s, cy],
+             [ 0 ,  0 ,  1]])
+
+    return T, T_inv
+
+def resolverDLT2D_PtsNormalizados(imgPts, objPts):
+    """
+    Resuelve Qh = 0 por mínimos cuadrados (con ||h|| = 1) para puntos ya normalizados.
+
+    Parámetros:
+        imgPts: array (n, 2) con los puntos de la imagen normalizados
+        objPts: array (n, 2) con los puntos del plano normalizados
+    Devuelve:
+        matriz 3x3 con la homografía entre los puntos normalizados
+    """
+    # Q de tamaño 2Nx9
+    Q = obtenerQ2d(imgPts, objPts)
+    h = minimo_cuadrado_homogeneo(Q)
+
+    return h.reshape(3, 3)
+
+def normalizarPts(T, pts):
+    """
+    Aplica la transformación T (3x3) a cada punto, usando coordenadas homogéneas.
+
+    Parámetros:
+        T: matriz 3x3 (por ejemplo, la de obtenerTHartley)
+        pts: array (n, 2) con los puntos
+    Devuelve:
+        array (n, 2) con los puntos transformados
+    """
+    normalizados = []
+
+    for i in range(pts.shape[0]):
+        p_i = np.hstack((pts[i], 1))
+        normalizados.append(multiplicar(T, p_i))
+
+    # La tercera coordenada queda en 1 porque T es afín
+    return np.array(normalizados)[:, :-1]
+
+def resolverDLT2D(imgPts, objPts):
+    """
+    Calcula la homografía H del plano a la imagen con DLT 2D y normalización de Hartley.
+
+    Parámetros:
+        imgPts: array (n, 2) con los puntos de la imagen (u, v), n >= 4 sin 3 alineados
+        objPts: array (n, 2) con los mismos puntos en el plano (U, V)
+    Devuelve:
+        matriz H 3x3 tal que [u, v, 1] ~ H [U, V, 1] (a menos de un factor de escala)
+    """
+    # Normalizar usando Hartley
+    Timg, Timg_inv = obtenerTHartley(imgPts)
+    Tworld, _ = obtenerTHartley(objPts)
+
+    imgPtsNormalizados = normalizarPts(Timg, imgPts)
+    objPtsNormalizados = normalizarPts(Tworld, objPts)
+
+    H_hat = resolverDLT2D_PtsNormalizados(imgPtsNormalizados, objPtsNormalizados)
+
+    # Deshacemos la normalización: H = Timg^-1 H_hat Tworld
+    return multiplicar(Timg_inv, multiplicar(H_hat, Tworld))
+
+def v_ij(H, i, j):
+    """
+    Arma el vector v_ij tal que c_i^T B c_j = v_ij b, con c_i y c_j columnas de H y
+    b = (B11, B12, B22, B13, B23, B33).
+
+    Parámetros:
+        H: homografía 3x3
+        i, j: índices de las columnas (0, 1 o 2)
+    Devuelve:
+        array de 6 elementos
+    """
+    # B simétrica (B_ij = B_ji), entonces
+    # (c_i)^T B c_j =   B_{11} c_{i1}c_{j1}
+    #                 + B_{12} (c_{i1}c_{j2} + c_{i2}c_{j1})
+    #                 + B_{22} (c_{i2}c_{j2})
+    #                 + B_{13} (c_{i3}c_{j1} + c_{i1}c_{j3})
+    #                 + B_{23} (c_{i3}c_{j2} + c_{i2}c_{j3})
+    #                 + B_{33} (c_{i3}c_{j3})
+    #               = v_ij b
+
+    c_i = H[:, i]
+    c_j = H[:, j]
+    return np.array([
+        c_i[0] * c_j[0],
+        c_i[0] * c_j[1] + c_i[1] * c_j[0],
+        c_i[1] * c_j[1],
+        c_i[2] * c_j[0] + c_i[0] * c_j[2],
+        c_i[2] * c_j[1] + c_i[1] * c_j[2],
+        c_i[2] * c_j[2]
+    ])
+
+def armarA(Hlst):
+    """
+    Arma la matriz A del algoritmo de Zhang a partir de las homografías de cada vista.
+
+    Parámetros:
+        Hlst: lista con las N homografías 3x3 (una por vista, obtenidas con resolverDLT2D)
+    Devuelve:
+        array (2N, 6): por cada vista, las filas v12 y v11 - v22
+    """
+    N = len(Hlst)
+    A = np.zeros((2 * N, 6))
+
+    for k in range(N):
+        H = Hlst[k]
+
+        # Calculamos los v_ij requeridos por el paso e) del algoritmo de Zhang
+        v12 = v_ij(H, 0, 1)
+        v11 = v_ij(H, 0, 0)
+        v22 = v_ij(H, 1, 1)
+
+        # Asignamos las dos filas correspondientes en la matriz A
+        A[2 * k]     = v12
+        A[2 * k + 1] = v11 - v22
+
+    return A
+
+def calcularMatrizK2D(A):
+    """
+    Calcula la matriz de intrínsecos K a partir de la matriz A de Zhang.
+
+    Parámetros:
+        A: array (2N, 6) armado con armarA
+    Devuelve:
+        matriz K 3x3 triangular superior, normalizada para que K[2, 2] = 1
+    """
+    # b: solución de Ab = 0 con ||b|| = 1
+    b = minimo_cuadrado_homogeneo(A)
+
+    B = np.array([[b[0], b[1], b[3]],
+                  [b[1], b[2], b[4]],
+                  [b[3], b[4], b[5]]])
+
+    # B se conoce salvo signo: si no es definida positiva, la damos vuelta
+    if not esSDP(B):
+        B = (-1) * B
+
+    # B = K^-T K^-1 = L L^T  =>  K = (L^T)^-1
+    L = calculaCholesky(B)
+
+    K = inversa(traspuesta(L))
+
+    # Como B se conoce solo salvo escala, se normaliza K dividiendola
+    # por K_33 para que K_33 = 1
+    K = K / K[2, 2]
+
+    return K
+
+def obtenerPose2D(Hj, K):
+    """
+    Calcula la pose (R, t) de una vista a partir de su homografía y de K.
+
+    Parámetros:
+        Hj: homografía 3x3 de la vista j
+        K: matriz de intrínsecos 3x3
+    Devuelve:
+        Rj: matriz de rotación 3x3
+        tj: vector de traslación (3,)
+    """
+    K_inv = inversa(K)
+    c1, c2, c3 = Hj[:, 0], Hj[:, 1], Hj[:, 2]
+    K_inv_c1 = multiplicar(K_inv, c1)
+
+    # lambda para que r1 tenga norma 1
+    s = norma(K_inv_c1, 2)
+    lambd = 1 / s
+
+    r1 = lambd * K_inv_c1
+    r2 = lambd * multiplicar(K_inv, c2)
+    tj = lambd * multiplicar(K_inv, c3)
+    # r3 perpendicular a r1 y r2
+    r3 = producto_vectorial(r1, r2)
+
+    Rj = np.hstack((
+        r1.reshape((-1, 1)),
+        r2.reshape((-1, 1)),
+        r3.reshape((-1, 1))))
+
+    return Rj, tj
+
+
+### -------------------------------------------- TP: Ejercicio 4 --------------------------------------------
+
+def aplicarHomografia(H, pts):
+    """
+    Aplica la homografía H a una lista de puntos 2D.
+
+    Parámetros:
+        H: matriz 3x3 homografía
+        pts: array (n, 2) puntos 2D a transformar
+    Devuelve:
+        array (n, 2) con los puntos transformados. Para cada punto p = (x, y)
+        se calcula q = H [x, y, 1]^T y se divide por la tercera coordenada (pasaje de coordenadas homogéneas a cartesianas).
+    """
+    transformados = np.zeros((pts.shape[0], 2))
+    for i in range(pts.shape[0]):
+        # Coordenadas homogéneas del punto
+        p_homogeneo = np.array([pts[i, 0], pts[i, 1], 1.0])
+        q = multiplicar(H, p_homogeneo)
+        # Deshomogeneizamos dividiendo por la tercera coordenada
+        transformados[i, 0] = q[0] / q[2]
+        transformados[i, 1] = q[1] / q[2]
+    return transformados
+
+def circuloEnCancha(centro, radio, n):
+    """
+    Puntos de una circunferencia sobre el piso, en coordenadas de la cancha.
+
+    Parámetros:
+        centro: (U0, V0) centro de la circunferencia (m)
+        radio: radio (m)
+        n: cantidad de divisiones de cada semicircunferencia
+    Devuelve:
+        array (2n+2, 2) con los puntos (U, V), recorriendo la circunferencia en orden
+        (primero la mitad de arriba y después la de abajo) para poder dibujarla con plt.plot.
+        Sin usar seno ni coseno: de (U - U0)^2 + (V - V0)^2 = r^2 despejamos V = V0 ± sqrt(r^2 - (U - U0)^2)
+    """
+    U0, V0 = centro
+    # Valores de U equiespaciados entre U0 - r y U0 + r
+    U = U0 - radio + 2 * radio * np.arange(n + 1) / n
+    # Altura de la semicircunferencia (np.abs evita negativos chicos por redondeo en los extremos)
+    altura = np.sqrt(np.abs(radio**2 - (U - U0)**2))
+    # Mitad de arriba (U creciente) y mitad de abajo (U decreciente) para cerrar la curva
+    mitad_arriba = np.vstack([U, V0 + altura]).T
+    mitad_abajo = np.vstack([U[::-1], V0 - altura[::-1]]).T
+    return np.vstack([mitad_arriba, mitad_abajo])
