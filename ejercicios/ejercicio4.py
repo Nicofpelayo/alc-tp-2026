@@ -29,18 +29,42 @@ def aplicarHomografia(H, pts):
     return transformados
 
 
+def circuloEnCancha(centro, radio, n):
+    """
+    Puntos de una circunferencia sobre el piso, en coordenadas de la cancha
+
+    Parámetros:
+        centro: (U0, V0) centro de la circunferencia (m)
+        radio: radio (m)
+        n: cantidad de divisiones de cada semicircunferencia
+    Devuelve:
+        array (2n+2, 2) con los puntos (U, V), recorriendo la circunferencia en orden
+        (primero la mitad de arriba y después la de abajo) para poder dibujarla con plt.plot.
+        Sin usar seno ni coseno: de (U - U0)^2 + (V - V0)^2 = r^2 despejamos V = V0 ± sqrt(r^2 - (U - U0)^2)
+    """
+    U0, V0 = centro
+    # Valores de U equiespaciados entre U0 - r y U0 + r
+    U = U0 - radio + 2 * radio * np.arange(n + 1) / n
+    # Altura de la semicircunferencia (np.abs evita negativos chicos por redondeo en los extremos)
+    altura = np.sqrt(np.abs(radio**2 - (U - U0)**2))
+    # Mitad de arriba (U creciente) y mitad de abajo (U decreciente) para cerrar la curva
+    mitad_arriba = np.vstack([U, V0 + altura]).T
+    mitad_abajo = np.vstack([U[::-1], V0 - altura[::-1]]).T
+    return np.vstack([mitad_arriba, mitad_abajo])
+
+
 # ---------------------------------------------------------------------------
 # Ejercicio 4.a: distancia de Enzo a la línea del arco
 # ---------------------------------------------------------------------------
 
 # Coordenadas del plano estadio_azteca.png: origen en la esquina inferior izq, U a lo largo (0..105 m) y
 # V a lo ancho (0..68 m).Enzo patea hacia el arco de U = 0; la cámara mira hacia ese arco, así que lo
-# que en la foto está a la izquierda tiene V menor.
+# que en la foto está a la izquierda tiene V menor
 
 # Puntos de referencia sobre el piso (datos del plano):
 #   arco de 7.32 m              -> palos en V = 34 ± 3.66
 #   área chica de 5.5 x 18.32 m -> V = 34 ± 9.16
-#   punto penal a 11 m          -> (11, 34)
+#   punto penal a 11m           -> (11, 34)
 #   medialuna de radio 9.15 m centrada en el penal, corta la línea del área
 #   (U = 16.5) en V = 34 ± sqrt(9.15^2 - 5.5^2) = 34 ± 7.31
 objPts = np.array([
@@ -53,7 +77,7 @@ objPts = np.array([
     [16.5, 41.31],   # 6: medialuna ∩ línea del área, der
 ])
 
-# Los mismos puntos en la foto (píxeles), marcados a mano con zoom
+# Los mismos puntos en la foto (píxeles)
 imgPts = np.array([
     [388.0, 176.0],
     [652.0, 184.5],
@@ -66,6 +90,22 @@ imgPts = np.array([
 
 # Pie de apoyo de Enzo al patear (píxeles)
 pie_enzo_img = np.array([[810.0, 545.0]])
+
+
+
+# ---------------------------------------------------------------------------
+# Ejercicio 4.b: círculos de 1m de rodeando a los jugadores argentinos
+# ---------------------------------------------------------------------------
+
+# Jugadores argentinos en la foto (píxeles)
+pies_argentinos_img = np.array([
+    [107.0, 540.0],   # Julian, abajo a la izquierda
+    [244.0, 404.0],   # Lautaro, sobre la línea del área
+    [388.0, 297.0],   # Cristian Romero, el de atrás (pies tapados, estimado)
+    [375.0, 328.0],   # Nico González, el de adelante
+    [853.0, 352.0],   # Alexis
+    [810.0, 545.0],   # Enzo
+])
 
 if __name__ == '__main__':
     img = mpimg.imread(f'{filepath_base}/test-gol-enzo.png')
@@ -99,3 +139,14 @@ if __name__ == '__main__':
     # Paso 5: distancia perpendicular a la línea de meta (U = 0)
     distancia = np.abs(U_enzo)
     print(f'Distancia a la línea del arco: {distancia:.2f} m')
+
+    # 4.b: cada pie a la cancha con H^-1, círculo de 1m en la cancha y proyección a la foto con H
+    pies_cancha = aplicarHomografia(H_inv, pies_argentinos_img)
+    plt.figure(figsize=(14, 9))
+    plt.imshow(img)
+    for i in range(pies_cancha.shape[0]):
+        circulo_img = aplicarHomografia(H, circuloEnCancha(pies_cancha[i], 1.0, 50))
+        plt.plot(circulo_img[:, 0], circulo_img[:, 1], 'y-', linewidth=1.5)
+        print(f'Jugador {i}: U = {pies_cancha[i, 0]:.2f} m, V = {pies_cancha[i, 1]:.2f} m')
+    plt.title('Jugadores argentinos con círculos de 1m de radio')
+    plt.show()
