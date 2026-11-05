@@ -181,18 +181,35 @@ def obtenerPose2D(Hj, K):
     K_inv = alc.inversa(K)
     c1, c2, c3 = Hj[:, 0], Hj[:, 1], Hj[:, 2]
     K_inv_c1 = alc.multiplicar(K_inv, c1)
+    K_inv_c2 = alc.multiplicar(K_inv, c2)
+    K_inv_c3 = alc.multiplicar(K_inv, c3)
 
     s = alc.norma(K_inv_c1, 2)
     lambd = 1 / s
 
     r1 = lambd * K_inv_c1
-    r2 = lambd * alc.multiplicar(K_inv, c2)
-    tj = lambd * alc.multiplicar(K_inv, c3)
+    r2 = lambd * K_inv_c2
     r3 = alc.producto_vectorial(r1,r2)
+    tj = lambd * K_inv_c3       
+    
+    # t =  λK^-1·c3
+    # Si t_z < 0, el punto quedó detrás de la camara,
+    #   (Recordar que H vino de resolver min_{||h||_2=1} Qh = 0),
+    #   con lo cual H puede ser H o -H
+    # Invertimos los signos para ajustar
+    #   (r3 queda igual)
+    if tj[2] < 0:
+        r1 = r1 * (-1)
+        r2 = r2 * (-1)
+        tj = tj * (-1)
 
     Rj = np.hstack((
         r1.reshape((-1,1)),
         r2.reshape((-1,1)),
         r3.reshape((-1,1))))
+
+    # se aplican restricciones a la matriz de rotación
+    # ortonormalizamos con Gram Schmidt
+    Rj, _ = alc.QR_con_GS(Rj)
 
     return Rj, tj

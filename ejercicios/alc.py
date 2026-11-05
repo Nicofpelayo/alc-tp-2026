@@ -1141,33 +1141,42 @@ def calcularMatrizK2D(A):
 
 def obtenerPose2D(Hj, K):
     """
-    Calcula la pose (R, t) de una vista a partir de su homografía y de K.
-
-    Parámetros:
-        Hj: homografía 3x3 de la vista j
-        K: matriz de intrínsecos 3x3
-    Devuelve:
-        Rj: matriz de rotación 3x3
-        tj: vector de traslación (3,)
+    Devuelve la pose de la vista j como Rj y tj
+    a partir de la matriz K y la Hj correspondiente.
     """
     K_inv = inversa(K)
     c1, c2, c3 = Hj[:, 0], Hj[:, 1], Hj[:, 2]
     K_inv_c1 = multiplicar(K_inv, c1)
+    K_inv_c2 = multiplicar(K_inv, c2)
+    K_inv_c3 = multiplicar(K_inv, c3)
 
-    # lambda para que r1 tenga norma 1
     s = norma(K_inv_c1, 2)
     lambd = 1 / s
 
     r1 = lambd * K_inv_c1
-    r2 = lambd * multiplicar(K_inv, c2)
-    tj = lambd * multiplicar(K_inv, c3)
-    # r3 perpendicular a r1 y r2
-    r3 = producto_vectorial(r1, r2)
+    r2 = lambd * K_inv_c2
+    r3 = producto_vectorial(r1,r2)
+    tj = lambd * K_inv_c3       
+    
+    # t =  λK^-1·c3
+    # Si t_z < 0, el punto quedó detrás de la camara,
+    #   (Recordar que H vino de resolver min_{||h||_2=1} Qh = 0),
+    #   con lo cual H puede ser H o -H
+    # Invertimos los signos para ajustar
+    #   (r3 queda igual)
+    if tj[2] < 0:
+        r1 = r1 * (-1)
+        r2 = r2 * (-1)
+        tj = tj * (-1)
 
     Rj = np.hstack((
-        r1.reshape((-1, 1)),
-        r2.reshape((-1, 1)),
-        r3.reshape((-1, 1))))
+        r1.reshape((-1,1)),
+        r2.reshape((-1,1)),
+        r3.reshape((-1,1))))
+
+    # se aplican restricciones a la matriz de rotación
+    # ortonormalizamos con Gram Schmidt
+    Rj, _ = QR_con_GS(Rj)
 
     return Rj, tj
 
