@@ -4,7 +4,8 @@ Created on Mon Nov  2 17:48:57 2026
 
 @author: anaba
 """
-
+import numpy as np
+import ejercicio3 as ej3
 import ejercicio2 as ej2
 import pandas as pd
 import alc
@@ -32,4 +33,29 @@ def par_intrinsecos_camara(pts_3d,pts_img):
         matrices.append(matriz_M)
     return matrices
 
+def obtenerHsK_coplanar(imgPtsList, objPts, restringir_K12=False, restringir_K11_K22=False):
+    """
+    objPts los puntos U,V del mundo real
+    imgPtsList los puntos en la imagen para cada vista
+    """
+    Hs = []
+    for imgPts in imgPtsList:
+        H = ej3.resolverDLT2D(imgPts, objPts)
+        Hs.append(H)
+
+    A = ej3.armarA(Hs)
+    K = ej3.calcularMatrizK2D(A, restringir_K12, restringir_K11_K22)
+    return Hs, K
+
+def proyectarPuntosUVW(ptsObjList, K, R, t):
+    Rt = np.hstack((R, t.reshape(-1,1)))
+    ptsProyectados = []
+    for ptsUVW in ptsObjList:
+        ptUVW1 = np.hstack((ptsUVW, 1))
+        ptXYZ = alc.multiplicar(Rt, ptUVW1)
+        pt_uvlambd = alc.multiplicar(K, ptXYZ)
+        pt_uv = pt_uvlambd / pt_uvlambd[2]
+        ptsProyectados.append(pt_uv[:-1])
+
+    return np.array(ptsProyectados)
 

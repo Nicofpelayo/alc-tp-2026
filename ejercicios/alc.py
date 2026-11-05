@@ -1108,7 +1108,7 @@ def armarA(Hlst):
 
     return A
 
-def calcularMatrizK2D(A):
+def calcularMatrizK2D(A, restringir_K12=False, restringir_K11_K22=False):
     """
     Calcula la matriz de intrínsecos K a partir de la matriz A de Zhang.
 
@@ -1136,6 +1136,13 @@ def calcularMatrizK2D(A):
     # Como B se conoce solo salvo escala, se normaliza K dividiendola
     # por K_33 para que K_33 = 1
     K = K / K[2, 2]
+
+    if restringir_K11_K22: 
+        promedio = (K[0,0] + K[1,1]) / 2 
+        K[0,0] = promedio  
+        K[1,1] = promedio 
+    if restringir_K12: 
+        K[0,1] = 0
 
     return K
 
