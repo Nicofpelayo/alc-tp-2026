@@ -209,10 +209,11 @@ def aplicarPOSIT(obj_vecs, img_vecs, K, MaxIt, atol):
         I0 = alc.calcularAx(pseudo_inv_A, b_u)
         J0 = alc.calcularAx(pseudo_inv_A, b_v)
         #sol1:
-        lamda1,mu1 = calculoLambdaMu(I0, J0)
-        #sol2:
-        lamda2,mu2 = -lamda1,-mu1
-        Is = [I0+lamda1*n,I0+lamda2*n]
+        lambda1,mu1 = calculoLambdaMu(I0, J0)
+        #sol2: cambiamos los signos, para obtener la segunda raíz compleja
+        lambda2,mu2 = -lambda1,-mu1
+        #calculamos I=I0+lambda*n, J=J0+mu*n para cada lambda, mu
+        Is = [I0+lambda1*n,I0+lambda2*n]
         Js = [J0+mu1*n,J0+mu2*n]
         i1, j1, k1, Z01, R1, t1 = calcularSalidaPOSIT(Is[0], Js[0], fx, m0, M0)
         i2, j2, k2, Z02, R2, t2 = calcularSalidaPOSIT(Is[1], Js[1], fx, m0, M0)

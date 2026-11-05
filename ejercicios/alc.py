@@ -1233,3 +1233,376 @@ def circuloEnCancha(centro, radio, n):
     mitad_arriba = np.vstack([U, V0 + altura]).T
     mitad_abajo = np.vstack([U[::-1], V0 - altura[::-1]]).T
     return np.vstack([mitad_arriba, mitad_abajo])
+
+### -------------------------------------------- TP: Ejercicio 6 --------------------------------------------
+
+#ejercicio 6.b:
+    
+def raicesCuadradasDeCCuadrado(Re, Im):
+    """
+    Calcula una de las raíces cuadradas del número complejo C^2 = Re + i*Im.
+
+    Parámetros:
+        Re: parte real de C²
+        Im: parte imaginaria de C²
+
+    Devuelve:
+        lamb, mu: números reales tales que
+        C = lambd + i*mu es una raíz cuadrada de C^2
+
+    La otra raíz se obtiene como (-lambd, -mu) en aplicarPOSIT.
+    """
+    # Buscamos λ y μ
+    # ||C^2||^2 = Re^2 + Im^2
+    #           = (λ^2 − μ^2)^2 + (2λμ)^2
+    #           = λ^4 − 2λ^2μ^2 + μ^4 + 4λ^2μ^2
+    #           = (λ^2 + μ^2)^2
+    #   
+    # Sea r = sqrt(Re^2 + Im^2). Tenemos
+    #   r  = sqrt(Re^2 + Im^2) = sqrt((λ^2 + μ^2)^2) = λ^2 + μ^2
+    # Resumiendo,
+    #   r = λ^2 + μ^2
+    #   Re = λ^2 − μ^2
+    # Sumando y restando con Re e Im:
+    #     
+    #    λ^2 = (r + Re) / 2
+    #    μ^2 = (r − Re) / 2
+    #
+    #  Si no, separamos en dos casos para no dividir por numeros chicos
+    #    Si Re > 0:   λ = sqrt(((r + Re) / 2))  =>   μ = Im / (2λ)
+    #    Si Re < 0:   μ = sqrt(((r − Re) / 2))  =>   λ = Im / (2μ)
+    #  ya que 2λμ = Im
+    #  Si r = 0 => Re = Im = 0, con lo cual λ = 0 y μ = 0
+
+    r = np.sqrt(Re*Re + Im*Im)
+    if iszero(r):
+        return 0, 0
+    
+    if Re > 0:
+        lambd = np.sqrt((r + Re) / 2)
+        mu = Im / (2*lambd)
+    else:
+        mu = np.sqrt((r - Re) / 2)
+        lambd = Im / (2*mu)
+
+    return lambd, mu
+
+
+def calculoLambdaMu(I0,J0):
+    """
+    Calcula los coeficientes lambda y mu para el caso
+    coplanar del algoritmo POSIT.
+
+    Parámetros:
+        I0: solución particular de AI = b_u, obtenida mediante la pseudoinversa de A
+        J0: solución particular de AJ = b_v, obtenida mediante la pseudoinversa de A
+
+    Devuelve:
+        lambd, mu: par de coeficientes que permite construir los vectores I y J, 
+        cumpliendo las restricciones de ortogonalidad e igual norma.
+
+    Como calculamos las raíces cuadradas de un número complejo, la otra raíz (-lambd, -mu),
+    se obtiene cambiando ambos signos en aplicarPOSIT."""
+ 
+    # C = λ + iμ
+    # C^2 = λ^2 − µ^2 + 2i λµ
+    # C^2 = (λ^2 − µ^2) + i (2λµ)
+    # C^2 = (||J0||^2 − ||I0||^2) + i (2 (-I0.T J0))
+    # C^2 = (||J0||^2 − ||I0||^2) + i (-2 I0.T J0)
+
+    # Calculo parte real
+    norm2_I0 = norma(I0, 2)
+    norm2_J0 = norma(J0, 2)
+    norm2_I0_cuad = norm2_I0 * norm2_I0
+    norm2_J0_cuad = norm2_J0 * norm2_J0
+    Re = norm2_J0_cuad - norm2_I0_cuad
+
+    # Calculo imaginaria
+    Im = (-2) * producto_interno(I0, J0)
+
+    lambd, mu = raicesCuadradasDeCCuadrado(Re, Im)
+    return lambd, mu
+
+#ejercicio 6.c:
+    
+def calcularSalidaPOSIT(Is, Js, fx, m0, M0):
+    """
+    Calcula una posible pose de la cámara a partir de los vectores Is y Js. 
+    
+    Parámetros:
+    Is: vector I obtenido a partir de I0 + lambda*n
+    Js: vector J obtenido a partir de J0 + mu*n
+    fx: distancia focal de la cámara
+    m0: coordenadas 2D centradas de la proyección de M0
+    M0: coordenadas 3D del punto de referencia 
+    Devuelve:
+    i, j, k: vectores unitarios que forman las filas de R
+    Z0: profundidad del punto de referencia
+    R: matriz de rotación (ortogonal, y det(R)=1)
+    t: vector de traslación
+    """
+    norm_I = norma(Is, 2)
+    norm_J = norma(Js, 2)
+    #normalizamos los vectores para que sean unitarios
+    i = Is / norm_I
+    j = Js / norm_J
+    k = producto_vectorial(i,j)
+    Z0 = fx / norm_I
+
+    R = np.array([i,j,k])
+
+    # Obtenemos t utilizando la ecuación 1 del TP
+    X0 = (Z0 / fx) * m0[0] # x0
+    Y0 = (Z0 / fx) * m0[1] # y0
+    T = np.array([X0, Y0, Z0])
+    
+    t=T-calcularAx(R, M0)
+    
+    return i,j,k,Z0,R,t
+
+
+#ejercicio 6.d:
+
+def RMSE(m1,m2):
+    """
+    Calcula la raíz del error cuadrático medio entre dos conjuntos de puntos 2D correspondientes.
+
+    Parámetros:
+        m1: coordenadas 2D predichas mediante una pose candidata (R, t)
+        m2: coordenadas 2D observadas en la imagen
+    Devuelve:
+        valor: error de reproyección (en píxeles)
+        Si el valor es más chico mejor es la pose.
+    """
+    sumatoria=0
+    for i in range(len(m1)):
+        norma_vector=norma(m1[i]-m2[i],2)
+        sumatoria+=norma_vector**2 
+    valor=np.sqrt(sumatoria/len(m1))
+    return valor
+                  
+        
+def evaluarPose(R, t, obj_vecs, img_vecs, K):
+    """
+    Evalúa una pose candidata de la cámara mediante la cantidad de proyecciones válidas y el RMSE.
+
+    Parámetros:
+        R: matriz de rotación de la cámara
+        t: vector de traslación
+        obj_vecs: coordenadas de los puntos 3D 
+        img_vecs: coordenadas 2D observadas en la imagen
+        K: matriz intrínseca de la cámara
+
+    Devuelve:
+        proyecciones_validas: cantidad de puntos 3D que están delante de la cámara (Z > 0)
+        RMSE: error de reproyección respecto de img_vecs, calculado sobre las proyecciones válidas
+    """
+    proyecciones_validas=0 
+    proyecciones=[]
+    comparaciones_validas=[]
+    for i in range(len(obj_vecs)): #para cada punto 3D (del mundo real)
+        #calculamos las coordenadas del punto 3D respecto al sistema de referencia de la cámara
+        punto=obj_vecs[i]
+        coords_camara=calcularAx(R,punto) + t
+        #nos fijamos si el punto está delante de la cámara (Z > 0)
+        if coords_camara[2]>0:
+            proyecciones_validas+=1 
+            #calculamos las coords homogéneas de la proyección 2D:(lambda*u, lambda*v, lambda)
+            proyeccion=calcularAx(K,coords_camara) 
+            #según la ecuación 2 del TP, lambda = Zi.
+            #dividimos por el factor de escala para obtener (u, v) en píxeles
+            proyeccion[0]=proyeccion[0]/proyeccion[2] 
+            proyeccion[1]=proyeccion[1]/proyeccion[2]
+            proyecciones.append(proyeccion[:2]) #guardamos los (u,v)
+            #seleccionamos los puntos 2D que podemos comparar
+            comparaciones_validas.append(img_vecs[i]) 
+    if proyecciones_validas==0:
+        return 0, np.inf #si no hay proyecciones validas, asignamos error infinito
+    return proyecciones_validas, RMSE(proyecciones,comparaciones_validas)
+
+#ejercicio 6.e:
+
+def construir_A(obj_vecs):
+    """
+    Construimos la matriz A a partir de los puntos 3D,tomando M0 como punto de referencia.
+    Parámetros:
+        obj_vecs: coordenadas 3D de los puntos del objeto,con M0 como primer punto.
+    Devuelve:
+        A: matriz cuyas filas son los vectores Mi - M0, para todos los puntos distintos de M0.
+    """
+    M0=obj_vecs[0] #punto de referencia
+    matriz_A=[]
+    for i in range(1,len(obj_vecs)):
+        vector=obj_vecs[i]-M0 
+        matriz_A.append(vector)
+    return np.array(matriz_A)
+        
+def centrar_coords(img_vecs,K):
+    """
+    Centra las coordenadas 2D de los puntos de la imagen, respecto del centro 
+    principal C=(cu,cv) de la cámara
+
+    Parámetros:
+        img_vecs: coordenadas 2D (u, v) de los puntos de la imagen
+        K: matriz intrínseca de la cámara
+
+    Devuelve:
+        coords_centradas: coordenadas (x, y) obtenidas
+        restando el centro principal (x_i=u_i-cu, y_i=v_i-cv).
+    """
+    #buscamos c_u, c_v en la matriz K
+    c_u = K[0][2]
+    c_v = K[1][2]
+    coords_centradas = []
+    for i in range(len(img_vecs)):
+        #centramos las coords
+        x = img_vecs[i][0] - c_u
+        y = img_vecs[i][1] - c_v
+        coords_centradas.append(np.array([x,y]))
+    return coords_centradas
+
+def calcular_b(coords,e,parametro="u"):
+    """
+    Construimos el vector b_u o b_v (términos independientes) para resolver los sistemas
+    AI = b_u y AJ = b_v del algoritmo POSIT, utilizando
+    los valores actuales de epsilon_i 
+    Parámetros:
+        coords: coordenadas 2D centradas de los puntos de la imagen
+        e: vector con factores de corrección de perspectiva e_i
+        parametro: indica si se construye b_u ("u") o b_v ("v")
+    Devuelve:
+        b: vector de términos independientes b_u o b_v, según el parámetro elegido.
+    """
+    b=[]
+    #empezamos en 1 porque coords[0] corresponde al punto de referencia M0
+    for i in range(1,len(coords)): 
+        if parametro=="u": 
+            b_i=coords[i][0]*(1+e[i])-coords[0][0]
+        else:
+            b_i=coords[i][1]*(1+e[i])-coords[0][1]
+        b.append(b_i)
+    return np.array(b)
+
+def mejor_pose_camara(pose1,pose2,n):
+    """
+    Compara dos poses candidatas y selecciona la mejor.
+    Si ambas tienen todas las proyecciones válidas, elige
+    la que tiene menor RMSE. Si alguna no tiene todas las
+    proyecciones válidas, la descarta.
+    Parámetros:
+        pose1: cantidad de proyecciones válidas y RMSE de la primera pose
+        pose2: cantidad de proyecciones válidas y RMSE de la segunda pose
+        n: cantidad total de puntos 3D
+    Devuelve:
+        mejor_pose: resultados de la evaluación de la pose seleccionada
+        num: número de la pose seleccionada (1 o 2), para recuperar sus parámetros en aplicarPOSIT
+        Si ninguna pose tiene todas las proyecciones válidas, devuelve (None, None).
+    """
+    mejor_pose = None
+    num=None
+    if pose1[0] ==n and pose2[0]==n:
+        if pose1[1]<pose2[1]:
+            mejor_pose=pose1
+            num=1
+        else:
+            mejor_pose=pose2 
+            num=2
+    elif pose1[0] ==n:
+        mejor_pose=pose1
+        num=1
+    elif pose2[0]==n:
+        mejor_pose=pose2 
+        num=2
+    return mejor_pose, num
+
+def aplicarPOSIT(obj_vecs, img_vecs, K, MaxIt, atol):
+    """
+    Aplicamos los pasos de la sección "Iteración POSIT" del TP para estimar 
+    la pose de la cámara respecto del sistema de coordenadas del objeto, 
+    utilizando las correspondencias entre puntos 3D y 2D.
+    Parámetros:
+        obj_vecs: coordenadas 3D de los puntos del objeto
+        img_vecs: coordenadas 2D observadas en la imagen
+        K: matriz intrínseca de la cámara
+        MaxIt: cantidad máxima de iteraciones
+        atol: tolerancia para determinar la convergencia
+    Devuelve:
+        R: matriz de rotación estimada de la cámara
+        t: vector de traslación estimado
+        Si no se encuentra una pose válida, devuelve None.
+        Si se alcanza MaxIt sin converger, devuelve la última pose estimada.
+    """
+    #inicializamos el algoritmo asumiendo una proyección ortográfica escalada
+    eps = np.zeros(len(obj_vecs))
+    #construimos A para resolver los sistemas(AI=b_u, AJ=b_v) con su pseudo-inversa
+    A = construir_A(obj_vecs)
+    #centramos las coordenadas 2D observadas en la imagen
+    coords = centrar_coords(img_vecs, K)
+    pseudo_inv_A = pseudoinversa(A)
+    #obtenemos un vector unitario n del núcleo de A (An=0)
+    #para construir I=I0+lambda*n y J=J0+mu*n
+    Nu = nucleo(A)
+    n = Nu[:, 0]
+    n = n / norma(n, 2)
+    #obtenemos parámetros para aplicar calcularSalidaPOSIT()
+    fx = K[0, 0]
+    m0 = coords[0]
+    M0 = obj_vecs[0]
+    for j in range(MaxIt):
+        #calculamos b_u, b_v para resolver el sistema lineal con la pseudo-inversa
+        b_u = calcular_b(coords, eps, "u")
+        b_v = calcular_b(coords, eps, "v")
+        I0 = calcularAx(pseudo_inv_A, b_u)
+        J0 = calcularAx(pseudo_inv_A, b_v)
+        #sol1:
+        lambda1,mu1 = calculoLambdaMu(I0, J0)
+        #sol2: cambiamos los signos, para obtener la segunda raíz compleja
+        lambda2,mu2 = -lambda1,-mu1
+        #calculamos I=I0+lambda*n, J=J0+mu*n para cada lambda, mu
+        Is = [I0+lambda1*n,I0+lambda2*n]
+        Js = [J0+mu1*n,J0+mu2*n]
+        #calculamos las poses a partir de las dos soluciones
+        i1, j1, k1, Z01, R1, t1 = calcularSalidaPOSIT(Is[0], Js[0], fx, m0, M0)
+        i2, j2, k2, Z02, R2, t2 = calcularSalidaPOSIT(Is[1], Js[1], fx, m0, M0)
+        #evaluamos las poses:
+        pose1=evaluarPose(R1, t1, obj_vecs, img_vecs, K)
+        pose2=evaluarPose(R2, t2, obj_vecs, img_vecs, K)
+        #nos quedamos con la mejor pose
+        mejor_pose, num =mejor_pose_camara(pose1,pose2,len(obj_vecs))
+        if num == 1: 
+            k_elegido = k1 
+            Z0_elegido = Z01 
+            R_elegido=R1
+            t_elegido=t1
+        elif num == 2: 
+            k_elegido = k2 
+            Z0_elegido = Z02 
+            R_elegido=R2
+            t_elegido=t2
+        else: 
+            return None
+        eps_nuevo=np.zeros(len(eps))
+        #actualizamos los factores de corrección de perspectiva epsilon_i
+        for i in range(1,len(eps_nuevo)): 
+            eps_nuevo[i]=producto_interno(A[i-1], k_elegido)/Z0_elegido
+        #verificamos si las correcciones convergieron
+        diferencias=np.abs(eps_nuevo-eps) 
+        if max(diferencias)<atol:
+            return R_elegido, t_elegido
+        eps=eps_nuevo #si no converge actualizamos eps, y sigue iterando
+    return R_elegido, t_elegido
+        
+def determinante_3x3(A):
+    """
+    Calcula el determinante de una matriz de 3x3
+    Parámetros:
+        A: matriz cuadrada de dimensión 3x3.
+    Devuelve:
+        valor: determinante de la matriz A.
+    """
+    # Desarrollamos el determinante por la primera fila
+    valor = (A[0,0] * (A[1,1]*A[2,2] - A[1,2]*A[2,1])
+           - A[0,1] * (A[1,0]*A[2,2] - A[1,2]*A[2,0])
+           + A[0,2] * (A[1,0]*A[2,1] - A[1,1]*A[2,0]))
+
+    return valor
