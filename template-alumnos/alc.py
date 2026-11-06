@@ -1148,8 +1148,14 @@ def calcularMatrizK2D(A, restringir_K12=False, restringir_K11_K22=False):
 
 def obtenerPose2D(Hj, K):
     """
-    Devuelve la pose de la vista j como Rj y tj
-    a partir de la matriz K y la Hj correspondiente.
+    Calcula la pose (R, t) de una vista a partir de su homografía y de K.
+
+    Parámetros:
+        Hj: homografía 3x3 de la vista j
+        K: matriz de intrínsecos 3x3
+    Devuelve:
+        Rj: matriz de rotación 3x3
+        tj: vector de traslación (3,)
     """
     K_inv = inversa(K)
     c1, c2, c3 = Hj[:, 0], Hj[:, 1], Hj[:, 2]
