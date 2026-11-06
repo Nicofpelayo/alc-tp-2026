@@ -1234,6 +1234,36 @@ def circuloEnCancha(centro, radio, n):
     mitad_abajo = np.vstack([U[::-1], V0 - altura[::-1]]).T
     return np.vstack([mitad_arriba, mitad_abajo])
 
+### -------------------------------------------- TP: Ejercicio 5--------------------------------------------
+
+def obtenerHsK_coplanar(imgPtsList, objPts, restringir_K12=False, restringir_K11_K22=False):
+    """
+    objPts los puntos U,V del mundo real
+    imgPtsList los puntos en la imagen para cada vista
+    """
+    Hs = []
+    for imgPts in imgPtsList:
+        H = resolverDLT2D(imgPts, objPts)
+        Hs.append(H)
+
+    A = armarA(Hs)
+    K = calcularMatrizK2D(A, restringir_K12, restringir_K11_K22)
+    return Hs, K
+
+def proyectarPuntosUVW(ptsObjList, K, R, t):
+    Rt = np.hstack((R, t.reshape(-1,1)))
+    ptsProyectados = []
+    for ptsUVW in ptsObjList:
+        ptUVW1 = np.hstack((ptsUVW, 1))
+        ptXYZ = multiplicar(Rt, ptUVW1)
+        pt_uvlambd = multiplicar(K, ptXYZ)
+        pt_uv = pt_uvlambd / pt_uvlambd[2]
+        ptsProyectados.append(pt_uv[:-1])
+
+    return np.array(ptsProyectados)
+
+
+
 ### -------------------------------------------- TP: Ejercicio 6 --------------------------------------------
 
 #ejercicio 6.b:
@@ -1366,7 +1396,6 @@ def calcularSalidaPOSIT(Is, Js, fx, m0, M0):
 def RMSE(m1,m2):
     """
     Calcula la raíz del error cuadrático medio entre dos conjuntos de puntos 2D correspondientes.
-
     Parámetros:
         m1: coordenadas 2D predichas mediante una pose candidata (R, t)
         m2: coordenadas 2D observadas en la imagen
