@@ -2,7 +2,6 @@
 
 import numpy as np
 import ejercicio3 as ej3
-import ejercicio2 as ej2
 import pandas as pd
 import alc
 filepath_base = 'salguero'
@@ -26,13 +25,6 @@ puntos_2d = alc.traspuesta(correspondencias[4:6, :])
 #M1=K[R1 t1], M2=K[R2 t2], M3=K[R3 t3] M4=K[R4 t4]
 #intento buscar M para cada foto, tendría infitas soluciones
 #en particular la dimensión del núcleo es 2
-def par_intrinsecos_camara(pts_3d,pts_img):
-    matrices=[]
-    for i in range(len(pts_img)): 
-        matriz_M=ej2.resolverDLT3D(ej2.obtenerQ3d(pts_img, pts_3d[i])) 
-        matrices.append(matriz_M)
-    return matrices
-
 def obtenerHsK_coplanar(imgPtsList, objPts, restringir_K12=False, restringir_K11_K22=False):
     """
     objPts los puntos U,V del mundo real

@@ -20,36 +20,15 @@ imgPts = pd.read_csv(f'{filepath_base}/detected_corners.txt', sep=r'\s+', header
 Q=obtenerQ3d(imgPts[0],objPts)
 
 
-def indice_min(v):
-    minimo=v[0]
-    indice=0
-    for i in range(len(v)):
-        if v[i]<minimo:
-            minimo=v[i]
-            indice=i
-    return indice
-
-def minimizacion(Q):
-    U, sigma, V = alc.svd_reducida(Q)
-    indice=indice_min(sigma)
-    m=V[:,indice]
-    return m
-    
-m = minimizacion(Q)
+m = alc.minimo_cuadrado_homogeneo(Q)
 
 
 #ejercicio 2.b:
 def resolverDLT3D(Q):
-    m=minimizacion(Q)
+    m=alc.minimo_cuadrado_homogeneo(Q)
     return np.reshape(m,(3,4))
 
 
-def determinante_3x3(A):
-    #recorrido por primera fila
-    valor= (A[0,0]*(A[1,1]*A[2,2] - A[1,2]*A[2,1])
-          - A[0,1]*(A[1,0]*A[2,2] - A[1,2]*A[2,0])
-          + A[0,2]*(A[1,0]*A[2,1] - A[1,1]*A[2,0]))
-    return valor
 #ejercicio 2.c y 2.d:
 def signo(n):
     if n<0:
@@ -68,7 +47,7 @@ def devolverMatricesCalibracion3d(M,opcional=0):
     D = np.zeros((3, 3))
     s1 = signo(K[0, 0] * K[2, 2])
     s2 = signo(K[1, 1] * K[2, 2])
-    sR = signo(determinante_3x3(R))
+    sR = signo(alc.determinante_3x3(R))
     d3 = s1 * s2 * sR
     d1 = s1 * d3
     d2 = s2 * d3

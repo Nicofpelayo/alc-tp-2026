@@ -19,20 +19,5 @@ print(Q)
 print(Q.shape)
 
 #ejercicio 1.b:
-def indice_min(v):
-    minimo=v[0]
-    indice=0
-    for i in range(len(v)):
-        if v[i]<minimo:
-            minimo=v[i]
-            indice=i
-    return indice
-
-def minimizacion(Q):
-    U, sigma, V = alc.svd_reducida(Q)
-    indice=indice_min(sigma)
-    m=V[:,indice]
-    return m
-    
-m = minimizacion(Q)
+m = alc.minimo_cuadrado_homogeneo(Q)
 print(m)

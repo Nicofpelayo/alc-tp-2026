@@ -920,17 +920,104 @@ def producto_interno(u,v):
 
 
 
+### -------------------------------------------- TP: Ejercicio 2 --------------------------------------------
+
+def obtenerQ3d(imgPts, objPts):
+    """
+    imgPts los puntos (u, v) en la imagen, como matriz de n x 2 o como vector [u1, v1, u2, v2, ...]
+    objPts los mismos n puntos (U, V, W) en el mundo, como matriz de n x 3
+    Retorna la matriz Q de 2n x 12 del sistema Qm = 0 (ecuación 6), con dos filas por cada punto
+    """
+    imgPts = np.asarray(imgPts).reshape(-1, 2)
+    n = objPts.shape[0]
+    Q = np.zeros((2 * n, 12))
+    for i in range(n):
+        # Para cada punto generamos sus 2 filas:
+        #   (P_i^T, 0^T, -u_i P_i^T) y (0^T, P_i^T, -v_i P_i^T), con P_i = (U, V, W, 1)
+        P_i = np.hstack((objPts[i], 1))
+        u_i = imgPts[i, 0]
+        v_i = imgPts[i, 1]
+
+        Q[i * 2]     = np.hstack((P_i, [0, 0, 0, 0], -1 * u_i * P_i))
+        Q[i * 2 + 1] = np.hstack(([0, 0, 0, 0], P_i, -1 * v_i * P_i))
+    return Q
+
+def resolverDLT3D(Q):
+    """
+    Q la matriz de 2n x 12 armada con obtenerQ3d
+    Retorna la matriz de proyección M de 3 x 4, resolviendo min_{||m||_2 = 1} ||Qm||_2 (Ejercicio 1 b).
+    M queda determinada a menos de un factor de escala
+    """
+    # m es el vector singular derecho asociado al menor valor singular de Q
+    m = minimo_cuadrado_homogeneo(Q)
+    # m = (m1, m2, m3) con m_j^T la fila j de M
+    return m.reshape(3, 4)
+
+def signo(x):
+    """
+    Recibe un numero x y retorna su signo: -1 si x < 0, 1 si x > 0 y 0 si x = 0
+    """
+    if x < 0:
+        return -1
+    elif x > 0:
+        return 1
+    return 0
+
+def devolverMatricesCalibracion3d(M, restringir_K12=False, restringir_K11_K22=False):
+    """
+    M la matriz de proyección de 3 x 4 (M = K [R | t])
+    restringir_K12 si es True, impone K12 = 0 (sin skew)
+    restringir_K11_K22 si es True, impone alpha_u = alpha_v, reemplazando K11 y K22 por su promedio
+    Retorna la matriz de rotación R de 3 x 3 (ortonormal y con det(R) = 1), el vector de traslación t
+    y la matriz de intrínsecos K de 3 x 3 (triangular superior y normalizada para que K33 = 1)
+    """
+    # M = [KR | Kt]: el bloque 3x3 de la izquierda es KR y la cuarta columna es Kt
+    matriz_KR = M[:, :3]
+    ultima_columna_M = M[:, 3]
+
+    # (KR)^-1 = R^-1 K^-1 = R^T K^-1, con R^T ortogonal y K^-1 triangular superior,
+    # así que una factorización QR de (KR)^-1 nos da Q = R^T y la "R" del QR = K^-1
+    R_traspuesta, K_inv = QR_con_GS(inversa(matriz_KR))
+    R = traspuesta(R_traspuesta)
+    K = inversa(K_inv)
+
+    # Kt = cuarta columna de M  =>  t = K^-1 (cuarta columna de M)
+    t = calcularAx(K_inv, ultima_columna_M)
+
+    # La factorización QR es única salvo signos: KR = (K D)(D R) para cualquier
+    # D = diag(±1, ±1, ±1). Elegimos D para que K11/K33 > 0, K22/K33 > 0 y det(R) = 1
+    s1 = signo(K[0, 0] * K[2, 2])
+    s2 = signo(K[1, 1] * K[2, 2])
+    sR = signo(determinante_3x3(R))
+    d3 = s1 * s2 * sR
+    d1 = s1 * d3
+    d2 = s2 * d3
+    D = escala([d1, d2, d3])
+
+    R = multiplicar(D, R)
+    K = multiplicar(K, D)
+    t = calcularAx(D, t)
+
+    # M se conoce salvo escala: normalizamos para que K33 = 1
+    K = K / K[2, 2]
+
+    # Ejercicio 2.d: restricciones opcionales sobre K
+    if restringir_K11_K22:
+        promedio = (K[0, 0] + K[1, 1]) / 2
+        K[0, 0] = promedio
+        K[1, 1] = promedio
+    if restringir_K12:
+        K[0, 1] = 0
+
+    return R, t, K
+
 ### -------------------------------------------- TP: Ejercicio 3 --------------------------------------------
 
 def obtenerQ2d(imgPts, objPts):
     """
-    Arma la matriz Q del sistema Qh = 0 (ecuación 11) para estimar una homografía.
-
-    Parámetros:
-        imgPts: array (n, 2) con los puntos en la imagen (u, v)
-        objPts: array (n, 2) con los mismos puntos en el plano (U, V)
-    Devuelve:
-        array (2n, 9) con dos filas por cada punto
+    imgPts los puntos (u, v) en la imagen, como matriz de n x 2
+    objPts los mismos n puntos (U, V) en el plano, como matriz de n x 2
+    Retorna la matriz Q de 2n x 9 del sistema Qh = 0 (ecuación 11), con dos filas por cada punto
     """
     n = objPts.shape[0]
     Q = np.zeros((2 * n, 9))
@@ -946,14 +1033,10 @@ def obtenerQ2d(imgPts, objPts):
 
 def obtenerTHartley(pts):
     """
-    Calcula la transformación de normalización de Hartley: traslada los puntos para que su centroide
-    quede en el origen y los escala para que la distancia promedio al origen sea sqrt(2).
-
-    Parámetros:
-        pts: array (n, 2) con los puntos a normalizar
-    Devuelve:
-        T: matriz 3x3 de normalización (en coordenadas homogéneas)
-        T_inv: su inversa
+    pts los puntos a normalizar, como matriz de n x 2
+    Calcula la normalización de Hartley: traslada los puntos para que su centroide quede en el origen
+    y los escala para que la distancia promedio al origen sea sqrt(2)
+    Retorna la matriz T de 3 x 3 de la normalización (en coordenadas homogéneas) y su inversa T_inv
     """
     # Calculo de centroide (traslacion)
     xs = pts[:, 0]
@@ -996,13 +1079,9 @@ def obtenerTHartley(pts):
 
 def resolverDLT2D_PtsNormalizados(imgPts, objPts):
     """
-    Resuelve Qh = 0 por mínimos cuadrados (con ||h|| = 1) para puntos ya normalizados.
-
-    Parámetros:
-        imgPts: array (n, 2) con los puntos de la imagen normalizados
-        objPts: array (n, 2) con los puntos del plano normalizados
-    Devuelve:
-        matriz 3x3 con la homografía entre los puntos normalizados
+    imgPts los puntos de la imagen ya normalizados, como matriz de n x 2
+    objPts los puntos del plano ya normalizados, como matriz de n x 2
+    Retorna la homografía de 3 x 3 entre los puntos normalizados, resolviendo min_{||h||_2 = 1} ||Qh||_2
     """
     # Q de tamaño 2Nx9
     Q = obtenerQ2d(imgPts, objPts)
@@ -1012,13 +1091,9 @@ def resolverDLT2D_PtsNormalizados(imgPts, objPts):
 
 def normalizarPts(T, pts):
     """
-    Aplica la transformación T (3x3) a cada punto, usando coordenadas homogéneas.
-
-    Parámetros:
-        T: matriz 3x3 (por ejemplo, la de obtenerTHartley)
-        pts: array (n, 2) con los puntos
-    Devuelve:
-        array (n, 2) con los puntos transformados
+    T una matriz de 3 x 3 (por ejemplo, la de obtenerTHartley)
+    pts los puntos a transformar, como matriz de n x 2
+    Retorna la matriz de n x 2 con los puntos transformados por T, usando coordenadas homogéneas
     """
     normalizados = []
 
@@ -1031,13 +1106,10 @@ def normalizarPts(T, pts):
 
 def resolverDLT2D(imgPts, objPts):
     """
-    Calcula la homografía H del plano a la imagen con DLT 2D y normalización de Hartley.
-
-    Parámetros:
-        imgPts: array (n, 2) con los puntos de la imagen (u, v), n >= 4 sin 3 alineados
-        objPts: array (n, 2) con los mismos puntos en el plano (U, V)
-    Devuelve:
-        matriz H 3x3 tal que [u, v, 1] ~ H [U, V, 1] (a menos de un factor de escala)
+    imgPts los puntos (u, v) en la imagen, como matriz de n x 2 (n >= 4, sin 3 alineados)
+    objPts los mismos n puntos (U, V) en el plano, como matriz de n x 2
+    Retorna la homografía H de 3 x 3 tal que [u, v, 1] ~ H [U, V, 1] (a menos de un factor de escala),
+    calculada con DLT 2D y normalización de Hartley
     """
     # Normalizar usando Hartley
     Timg, Timg_inv = obtenerTHartley(imgPts)
@@ -1053,14 +1125,10 @@ def resolverDLT2D(imgPts, objPts):
 
 def v_ij(H, i, j):
     """
-    Arma el vector v_ij tal que c_i^T B c_j = v_ij b, con c_i y c_j columnas de H y
-    b = (B11, B12, B22, B13, B23, B33).
-
-    Parámetros:
-        H: homografía 3x3
-        i, j: índices de las columnas (0, 1 o 2)
-    Devuelve:
-        array de 6 elementos
+    H una homografía de 3 x 3
+    i, j los índices de las columnas de H (0, 1 o 2)
+    Retorna el vector v_ij de 6 elementos tal que c_i^T B c_j = v_ij b, con c_i y c_j las columnas i y j de H
+    y b = (B11, B12, B22, B13, B23, B33)
     """
     # B simétrica (B_ij = B_ji), entonces
     # (c_i)^T B c_j =   B_{11} c_{i1}c_{j1}
@@ -1084,12 +1152,8 @@ def v_ij(H, i, j):
 
 def armarA(Hlst):
     """
-    Arma la matriz A del algoritmo de Zhang a partir de las homografías de cada vista.
-
-    Parámetros:
-        Hlst: lista con las N homografías 3x3 (una por vista, obtenidas con resolverDLT2D)
-    Devuelve:
-        array (2N, 6): por cada vista, las filas v12 y v11 - v22
+    Hlst una lista con las N homografías de 3 x 3 (una por vista, obtenidas con resolverDLT2D)
+    Retorna la matriz A de 2N x 6 del algoritmo de Zhang, con las filas v12 y v11 - v22 de cada vista
     """
     N = len(Hlst)
     A = np.zeros((2 * N, 6))
@@ -1110,12 +1174,10 @@ def armarA(Hlst):
 
 def calcularMatrizK2D(A, restringir_K12=False, restringir_K11_K22=False):
     """
-    Calcula la matriz de intrínsecos K a partir de la matriz A de Zhang.
-
-    Parámetros:
-        A: array (2N, 6) armado con armarA
-    Devuelve:
-        matriz K 3x3 triangular superior, normalizada para que K[2, 2] = 1
+    A la matriz de 2N x 6 armada con armarA
+    restringir_K12 si es True, impone K12 = 0 (sin skew)
+    restringir_K11_K22 si es True, impone alpha_u = alpha_v, reemplazando K11 y K22 por su promedio
+    Retorna la matriz de intrínsecos K de 3 x 3 (triangular superior y normalizada para que K33 = 1)
     """
     # b: solución de Ab = 0 con ||b|| = 1
     b = minimo_cuadrado_homogeneo(A)
@@ -1148,14 +1210,9 @@ def calcularMatrizK2D(A, restringir_K12=False, restringir_K11_K22=False):
 
 def obtenerPose2D(Hj, K):
     """
-    Calcula la pose (R, t) de una vista a partir de su homografía y de K.
-
-    Parámetros:
-        Hj: homografía 3x3 de la vista j
-        K: matriz de intrínsecos 3x3
-    Devuelve:
-        Rj: matriz de rotación 3x3
-        tj: vector de traslación (3,)
+    Hj la homografía de 3 x 3 de la vista j
+    K la matriz de intrínsecos de 3 x 3
+    Retorna la matriz de rotación Rj de 3 x 3 y el vector de traslación tj de la vista j
     """
     K_inv = inversa(K)
     c1, c2, c3 = Hj[:, 0], Hj[:, 1], Hj[:, 2]
@@ -1198,14 +1255,10 @@ def obtenerPose2D(Hj, K):
 
 def aplicarHomografia(H, pts):
     """
-    Aplica la homografía H a una lista de puntos 2D.
-
-    Parámetros:
-        H: matriz 3x3 homografía
-        pts: array (n, 2) puntos 2D a transformar
-    Devuelve:
-        array (n, 2) con los puntos transformados. Para cada punto p = (x, y)
-        se calcula q = H [x, y, 1]^T y se divide por la tercera coordenada (pasaje de coordenadas homogéneas a cartesianas).
+    H una homografía de 3 x 3
+    pts los puntos 2D a transformar, como matriz de n x 2
+    Retorna la matriz de n x 2 con los puntos transformados: para cada punto (x, y) calcula
+    q = H [x, y, 1]^T y divide por la tercera coordenada (pasaje de coordenadas homogéneas a cartesianas)
     """
     transformados = np.zeros((pts.shape[0], 2))
     for i in range(pts.shape[0]):
@@ -1219,16 +1272,12 @@ def aplicarHomografia(H, pts):
 
 def circuloEnCancha(centro, radio, n):
     """
-    Puntos de una circunferencia sobre el piso, en coordenadas de la cancha.
-
-    Parámetros:
-        centro: (U0, V0) centro de la circunferencia (m)
-        radio: radio (m)
-        n: cantidad de divisiones de cada semicircunferencia
-    Devuelve:
-        array (2n+2, 2) con los puntos (U, V), recorriendo la circunferencia en orden
-        (primero la mitad de arriba y después la de abajo) para poder dibujarla con plt.plot.
-        Sin usar seno ni coseno: de (U - U0)^2 + (V - V0)^2 = r^2 despejamos V = V0 ± sqrt(r^2 - (U - U0)^2)
+    centro el centro (U0, V0) de la circunferencia, en metros
+    radio el radio de la circunferencia, en metros
+    n la cantidad de divisiones de cada semicircunferencia
+    Retorna la matriz de (2n+2) x 2 con los puntos (U, V) de la circunferencia sobre el piso, recorridos en orden
+    (primero la mitad de arriba y después la de abajo) para poder dibujarla con plt.plot.
+    No usa seno ni coseno: de (U - U0)^2 + (V - V0)^2 = r^2 despeja V = V0 ± sqrt(r^2 - (U - U0)^2)
     """
     U0, V0 = centro
     # Valores de U equiespaciados entre U0 - r y U0 + r
@@ -1244,8 +1293,10 @@ def circuloEnCancha(centro, radio, n):
 
 def obtenerHsK_coplanar(imgPtsList, objPts, restringir_K12=False, restringir_K11_K22=False):
     """
-    objPts los puntos U,V del mundo real
-    imgPtsList los puntos en la imagen para cada vista
+    imgPtsList una lista con los puntos (u, v) en la imagen de cada vista, cada uno como matriz de n x 2
+    objPts los mismos n puntos (U, V) en el plano del mundo, como matriz de n x 2
+    restringir_K12, restringir_K11_K22 las restricciones opcionales sobre K (ver calcularMatrizK2D)
+    Retorna la lista con la homografía de cada vista y la matriz de intrínsecos K de 3 x 3
     """
     Hs = []
     for imgPts in imgPtsList:
@@ -1257,6 +1308,12 @@ def obtenerHsK_coplanar(imgPtsList, objPts, restringir_K12=False, restringir_K11
     return Hs, K
 
 def proyectarPuntosUVW(ptsObjList, K, R, t):
+    """
+    ptsObjList los puntos (U, V, W) del mundo, como matriz de n x 3
+    K la matriz de intrínsecos de 3 x 3
+    R, t la pose de la cámara (matriz de rotación de 3 x 3 y vector de traslación)
+    Retorna la matriz de n x 2 con las proyecciones (u, v) de los puntos en la imagen (ecuación 3)
+    """
     Rt = np.hstack((R, t.reshape(-1,1)))
     ptsProyectados = []
     for ptsUVW in ptsObjList:
@@ -1276,17 +1333,10 @@ def proyectarPuntosUVW(ptsObjList, K, R, t):
     
 def raicesCuadradasDeCCuadrado(Re, Im):
     """
-    Calcula una de las raíces cuadradas del número complejo C^2 = Re + i*Im.
-
-    Parámetros:
-        Re: parte real de C²
-        Im: parte imaginaria de C²
-
-    Devuelve:
-        lamb, mu: números reales tales que
-        C = lambd + i*mu es una raíz cuadrada de C^2
-
-    La otra raíz se obtiene como (-lambd, -mu) en aplicarPOSIT.
+    Re la parte real de C^2
+    Im la parte imaginaria de C^2
+    Retorna lambd y mu, números reales tales que C = lambd + i*mu es una raíz cuadrada de C^2.
+    La otra raíz es (-lambd, -mu), que se usa en aplicarPOSIT
     """
     # Buscamos λ y μ
     # ||C^2||^2 = Re^2 + Im^2
@@ -1326,19 +1376,12 @@ def raicesCuadradasDeCCuadrado(Re, Im):
 
 def calculoLambdaMu(I0,J0):
     """
-    Calcula los coeficientes lambda y mu para el caso
-    coplanar del algoritmo POSIT.
-
-    Parámetros:
-        I0: solución particular de AI = b_u, obtenida mediante la pseudoinversa de A
-        J0: solución particular de AJ = b_v, obtenida mediante la pseudoinversa de A
-
-    Devuelve:
-        lambd, mu: par de coeficientes que permite construir los vectores I y J, 
-        cumpliendo las restricciones de ortogonalidad e igual norma.
-
-    Como calculamos las raíces cuadradas de un número complejo, la otra raíz (-lambd, -mu),
-    se obtiene cambiando ambos signos en aplicarPOSIT."""
+    I0 la solución particular de AI = b_u, obtenida con la pseudoinversa de A
+    J0 la solución particular de AJ = b_v, obtenida con la pseudoinversa de A
+    Retorna lambd y mu, los coeficientes para construir I = I0 + lambd*n y J = J0 + mu*n
+    de forma que I y J sean ortogonales y de igual norma (caso coplanar de POSIT).
+    La otra solución, (-lambd, -mu), se obtiene cambiando ambos signos en aplicarPOSIT
+    """
  
     # C = λ + iμ
     # C^2 = λ^2 − µ^2 + 2i λµ
@@ -1363,19 +1406,13 @@ def calculoLambdaMu(I0,J0):
     
 def calcularSalidaPOSIT(Is, Js, fx, m0, M0):
     """
-    Calcula una posible pose de la cámara a partir de los vectores Is y Js. 
-    
-    Parámetros:
-    Is: vector I obtenido a partir de I0 + lambda*n
-    Js: vector J obtenido a partir de J0 + mu*n
-    fx: distancia focal de la cámara
-    m0: coordenadas 2D centradas de la proyección de M0
-    M0: coordenadas 3D del punto de referencia 
-    Devuelve:
-    i, j, k: vectores unitarios que forman las filas de R
-    Z0: profundidad del punto de referencia
-    R: matriz de rotación (ortogonal, y det(R)=1)
-    t: vector de traslación
+    Is el vector I = I0 + lambd*n
+    Js el vector J = J0 + mu*n
+    fx la distancia focal de la cámara
+    m0 las coordenadas 2D centradas de la proyección de M0
+    M0 las coordenadas 3D del punto de referencia
+    Retorna una posible pose de la cámara: los vectores unitarios i, j, k (filas de R), la profundidad Z0
+    del punto de referencia, la matriz de rotación R (ortogonal y con det(R) = 1) y el vector de traslación t
     """
     norm_I = norma(Is, 2)
     norm_J = norma(Js, 2)
@@ -1401,13 +1438,10 @@ def calcularSalidaPOSIT(Is, Js, fx, m0, M0):
 
 def RMSE(m1,m2):
     """
-    Calcula la raíz del error cuadrático medio entre dos conjuntos de puntos 2D correspondientes.
-    Parámetros:
-        m1: coordenadas 2D predichas mediante una pose candidata (R, t)
-        m2: coordenadas 2D observadas en la imagen
-    Devuelve:
-        valor: error de reproyección (en píxeles)
-        Si el valor es más chico mejor es la pose.
+    m1 las coordenadas 2D predichas con una pose candidata (R, t)
+    m2 las coordenadas 2D observadas en la imagen
+    Retorna la raíz del error cuadrático medio entre ambos conjuntos de puntos (error de reproyección, en píxeles).
+    Cuanto más chico, mejor es la pose
     """
     sumatoria=0
     for i in range(len(m1)):
@@ -1419,18 +1453,13 @@ def RMSE(m1,m2):
         
 def evaluarPose(R, t, obj_vecs, img_vecs, K):
     """
-    Evalúa una pose candidata de la cámara mediante la cantidad de proyecciones válidas y el RMSE.
-
-    Parámetros:
-        R: matriz de rotación de la cámara
-        t: vector de traslación
-        obj_vecs: coordenadas de los puntos 3D 
-        img_vecs: coordenadas 2D observadas en la imagen
-        K: matriz intrínseca de la cámara
-
-    Devuelve:
-        proyecciones_validas: cantidad de puntos 3D que están delante de la cámara (Z > 0)
-        RMSE: error de reproyección respecto de img_vecs, calculado sobre las proyecciones válidas
+    R la matriz de rotación de la cámara
+    t el vector de traslación
+    obj_vecs las coordenadas de los puntos 3D
+    img_vecs las coordenadas 2D observadas en la imagen
+    K la matriz intrínseca de la cámara
+    Retorna la cantidad de proyecciones válidas (puntos 3D delante de la cámara, Z > 0) y el RMSE
+    respecto de img_vecs, calculado sobre las proyecciones válidas
     """
     proyecciones_validas=0 
     proyecciones=[]
@@ -1459,11 +1488,8 @@ def evaluarPose(R, t, obj_vecs, img_vecs, K):
 
 def construir_A(obj_vecs):
     """
-    Construimos la matriz A a partir de los puntos 3D,tomando M0 como punto de referencia.
-    Parámetros:
-        obj_vecs: coordenadas 3D de los puntos del objeto,con M0 como primer punto.
-    Devuelve:
-        A: matriz cuyas filas son los vectores Mi - M0, para todos los puntos distintos de M0.
+    obj_vecs las coordenadas 3D de los puntos del objeto, con M0 como primer punto
+    Retorna la matriz A cuyas filas son los vectores Mi - M0, para todos los puntos distintos de M0
     """
     M0=obj_vecs[0] #punto de referencia
     matriz_A=[]
@@ -1474,16 +1500,10 @@ def construir_A(obj_vecs):
         
 def centrar_coords(img_vecs,K):
     """
-    Centra las coordenadas 2D de los puntos de la imagen, respecto del centro 
-    principal C=(cu,cv) de la cámara
-
-    Parámetros:
-        img_vecs: coordenadas 2D (u, v) de los puntos de la imagen
-        K: matriz intrínseca de la cámara
-
-    Devuelve:
-        coords_centradas: coordenadas (x, y) obtenidas
-        restando el centro principal (x_i=u_i-cu, y_i=v_i-cv).
+    img_vecs las coordenadas 2D (u, v) de los puntos de la imagen
+    K la matriz intrínseca de la cámara
+    Retorna las coordenadas (x, y) centradas respecto del centro principal (cu, cv) de la cámara:
+    x_i = u_i - cu, y_i = v_i - cv
     """
     #buscamos c_u, c_v en la matriz K
     c_u = K[0][2]
@@ -1498,15 +1518,10 @@ def centrar_coords(img_vecs,K):
 
 def calcular_b(coords,e,parametro="u"):
     """
-    Construimos el vector b_u o b_v (términos independientes) para resolver los sistemas
-    AI = b_u y AJ = b_v del algoritmo POSIT, utilizando
-    los valores actuales de epsilon_i 
-    Parámetros:
-        coords: coordenadas 2D centradas de los puntos de la imagen
-        e: vector con factores de corrección de perspectiva e_i
-        parametro: indica si se construye b_u ("u") o b_v ("v")
-    Devuelve:
-        b: vector de términos independientes b_u o b_v, según el parámetro elegido.
+    coords las coordenadas 2D centradas de los puntos de la imagen
+    e el vector con los factores de corrección de perspectiva epsilon_i actuales
+    parametro indica si se construye b_u ("u") o b_v ("v")
+    Retorna el vector de términos independientes b_u o b_v de los sistemas AI = b_u y AJ = b_v de POSIT
     """
     b=[]
     #empezamos en 1 porque coords[0] corresponde al punto de referencia M0
@@ -1520,18 +1535,12 @@ def calcular_b(coords,e,parametro="u"):
 
 def mejor_pose_camara(pose1,pose2,n):
     """
-    Compara dos poses candidatas y selecciona la mejor.
-    Si ambas tienen todas las proyecciones válidas, elige
-    la que tiene menor RMSE. Si alguna no tiene todas las
-    proyecciones válidas, la descarta.
-    Parámetros:
-        pose1: cantidad de proyecciones válidas y RMSE de la primera pose
-        pose2: cantidad de proyecciones válidas y RMSE de la segunda pose
-        n: cantidad total de puntos 3D
-    Devuelve:
-        mejor_pose: resultados de la evaluación de la pose seleccionada
-        num: número de la pose seleccionada (1 o 2), para recuperar sus parámetros en aplicarPOSIT
-        Si ninguna pose tiene todas las proyecciones válidas, devuelve (None, None).
+    pose1 la cantidad de proyecciones válidas y el RMSE de la primera pose
+    pose2 la cantidad de proyecciones válidas y el RMSE de la segunda pose
+    n la cantidad total de puntos 3D
+    Descarta las poses que no tienen todas las proyecciones válidas y, si quedan las dos, elige la de menor RMSE.
+    Retorna la evaluación de la pose elegida y su número (1 o 2), para recuperar sus parámetros en aplicarPOSIT.
+    Si ninguna pose tiene todas las proyecciones válidas, retorna (None, None)
     """
     mejor_pose = None
     num=None
@@ -1552,20 +1561,15 @@ def mejor_pose_camara(pose1,pose2,n):
 
 def aplicarPOSIT(obj_vecs, img_vecs, K, MaxIt, atol):
     """
-    Aplicamos los pasos de la sección "Iteración POSIT" del TP para estimar 
-    la pose de la cámara respecto del sistema de coordenadas del objeto, 
-    utilizando las correspondencias entre puntos 3D y 2D.
-    Parámetros:
-        obj_vecs: coordenadas 3D de los puntos del objeto
-        img_vecs: coordenadas 2D observadas en la imagen
-        K: matriz intrínseca de la cámara
-        MaxIt: cantidad máxima de iteraciones
-        atol: tolerancia para determinar la convergencia
-    Devuelve:
-        R: matriz de rotación estimada de la cámara
-        t: vector de traslación estimado
-        Si no se encuentra una pose válida, devuelve None.
-        Si se alcanza MaxIt sin converger, devuelve la última pose estimada.
+    obj_vecs las coordenadas 3D de los puntos del objeto
+    img_vecs las coordenadas 2D observadas en la imagen
+    K la matriz intrínseca de la cámara
+    MaxIt la cantidad máxima de iteraciones
+    atol la tolerancia para determinar la convergencia
+    Aplica los pasos de la sección "Iteración POSIT" del TP para estimar la pose de la cámara
+    respecto del sistema de coordenadas del objeto.
+    Retorna la matriz de rotación R y el vector de traslación t estimados. Si no encuentra una pose válida,
+    retorna None. Si alcanza MaxIt sin converger, retorna la última pose estimada
     """
     #inicializamos el algoritmo asumiendo una proyección ortográfica escalada
     eps = np.zeros(len(obj_vecs))
@@ -1629,11 +1633,8 @@ def aplicarPOSIT(obj_vecs, img_vecs, K, MaxIt, atol):
         
 def determinante_3x3(A):
     """
-    Calcula el determinante de una matriz de 3x3
-    Parámetros:
-        A: matriz cuadrada de dimensión 3x3.
-    Devuelve:
-        valor: determinante de la matriz A.
+    A una matriz de 3 x 3
+    Retorna el determinante de A, desarrollado por la primera fila
     """
     # Desarrollamos el determinante por la primera fila
     valor = (A[0,0] * (A[1,1]*A[2,2] - A[1,2]*A[2,1])
