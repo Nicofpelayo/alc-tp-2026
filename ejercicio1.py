@@ -10,7 +10,7 @@ def buildQ(coords, proyections):
         Q[i * 2 + 1] = np.hstack(([0, 0, 0, 0], ncoords , - 1 * proyections[i * 2 + 1] * ncoords))
     return Q
 
-filepath_base = '../template-alumnos/calib/3d'
+filepath_base = 'calib/3d'
 
 coords = pd.read_csv(f'{filepath_base}/p_W_corners.txt', sep=',', header=None).to_numpy()
 proyections = pd.read_csv(f'{filepath_base}/detected_corners.txt', sep=r'\s+', header=None).to_numpy()                  # Test para verificar que buildQ funcione, no se obtienen las proyecciones asi

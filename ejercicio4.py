@@ -4,7 +4,7 @@ from matplotlib import pyplot as plt
 import alc
 from ejercicio3 import resolverDLT2D
 
-filepath_base = '../template-alumnos/futbol'
+filepath_base = 'futbol'
 
 
 def aplicarHomografia(H, pts):

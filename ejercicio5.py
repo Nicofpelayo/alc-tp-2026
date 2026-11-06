@@ -5,7 +5,7 @@ import ejercicio3 as ej3
 import ejercicio2 as ej2
 import pandas as pd
 import alc
-filepath_base = '../template-alumnos/salguero'
+filepath_base = 'salguero'
 
 
 puntos= pd.read_csv(f'{filepath_base}/world_img_pts.csv', sep=';')
@@ -68,7 +68,7 @@ import cv2
 import csv
 
 
-carpeta = r"C:\Users\anaba\Downloads\alc-tp-2026\template-alumnos\gs_dataset"
+carpeta = "gs_dataset"
 
 # Ordenamos las fotografías cronológicamente
 fotos = sorted([

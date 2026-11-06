@@ -1,9 +1,9 @@
 # Notas para la entrega
 
 ## Carpetas y rutas
-- Seguimos trabajando con `ejercicios/alc.py`.
-- Al armar la entrega, **copiamos `alc.py` a `template-alumnos/`**, al lado de `grupo_XX_TP.ipynb`. Así `import alc` anda sin tocar `sys.path`.
-- En la notebook final, rutas relativas a `template-alumnos/`, como en la plantilla: `'futbol/test-gol-enzo.png'`, `'calib/coplanar/p_corners.txt'`. **No** usar `'../template-alumnos/...'`, porque en la máquina del docente no va a existir.
+- Todo está en la raíz del repo: `alc.py`, los `ejercicioN.py/.ipynb`, `grupo_choripan_TP.ipynb` y las carpetas de datos (`calib`, `futbol`, `salguero`, `heli`, `gs_dataset`). Ya no existen `ejercicios/` ni `template-alumnos/`.
+- `alc.py` queda al lado de la notebook, así que `import alc` anda sin tocar `sys.path`.
+- Rutas relativas a la raíz, como en la plantilla: `'futbol/test-gol-enzo.png'`, `'calib/coplanar/p_corners.txt'`. **No** usar rutas absolutas ni `'../...'`, porque en la máquina del docente no van a existir.
 
 ## alc.py
 - Cada función con encabezado: qué parámetros recibe y qué devuelve. Lo pide el enunciado.
@@ -15,18 +15,18 @@ Es una **lista cerrada** (pág. 8-9): lo que no está, no se puede usar. Hoy hay
 
 | Dónde | Qué |
 |---|---|
-| `ejercicios/alc.py:139` (`rota`) | `np.cos`, `np.sin` |
-| `ejercicios/alc.py:291` (`normaMatMC`) | `A@x` |
-| `ejercicios/alc.py:305` y `:316` (`condMC`, `condExacto`) | `np.linalg.inv` |
-| `ejercicios/ejercicio6.py:259-260` (prints de prueba) | `R.T @ R`, `np.linalg.det` |
-| `ejercicios/ejercicio5.ipynb` | `cv2.cvtColor`, `cv2.circle` |
+| `alc.py:139` (`rota`) | `np.cos`, `np.sin` |
+| `alc.py:291` (`normaMatMC`) | `A@x` |
+| `alc.py:305` y `:316` (`condMC`, `condExacto`) | `np.linalg.inv` |
+| `ejercicio6.py:259-260` (prints de prueba) | `R.T @ R`, `np.linalg.det` |
+| `ejercicio5.ipynb` | `cv2.cvtColor`, `cv2.circle` |
 
 Para verificar durante el desarrollo se pueden usar, pero remover para la entrega
 
 Imágenes: usamos `cv2.imread`. Devuelve BGR, así que para mostrarla con `plt.imshow` usar `img[:, :, ::-1]` (no `cv2.cvtColor`, que no está permitida).
 
 ## grupo_XX_TP.ipynb
-Lo que hice del ej 4 (`ejercicios/ejercicio4.py` y `ejercicio4.ipynb`). Revisen si les parece bien o si hay que cambiar algo antes de pasarlo a la entrega:
+Lo que hice del ej 4 (`ejercicio4.py` y `ejercicio4.ipynb`). Revisen si les parece bien o si hay que cambiar algo antes de pasarlo a la entrega:
 
 - **4.b**: usé la misma H del 4.a. Los círculos se arman sin `np.cos`/`np.sin`, con $V = V_0 \pm \sqrt{r^2 - (U-U_0)^2}$. Los pies de Romero están tapados; su posición está estimada por la bota.
 - **4.c**:
@@ -40,7 +40,7 @@ Lo que hice del ej 4 (`ejercicios/ejercicio4.py` y `ejercicio4.ipynb`). Revisen 
 - **Ej 4.a**: usamos el radio de la medialuna (9.15 m, del reglamento) que no figura como número en el plano. ¿Vale?
 
 ## Estado (4/11)
-| Ej | Trabajo (`ejercicios/`) | En la entrega |
+| Ej | Trabajo (archivos `ejercicioN`) | En la entrega |
 |---|---|---|
 | 1 | hecho | texto hecho |
 | 2 | hecho | texto del 2.c a emprolijar |

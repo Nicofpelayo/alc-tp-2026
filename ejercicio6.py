@@ -3,7 +3,7 @@ import alc
 import pandas as pd
 import cv2
 from matplotlib import pyplot as plt
-filepath_base = '../template-alumnos/heli'
+filepath_base = 'heli'
 
 matriz_K = pd.read_csv(f'{filepath_base}/K.csv', sep=';', header=None).to_numpy()
 puntos_3d = pd.read_csv(f'{filepath_base}/object_points.csv', sep=';', header=0, index_col=0).to_numpy(dtype=float)
