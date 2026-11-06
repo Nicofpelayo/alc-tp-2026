@@ -1620,3 +1620,4 @@ def determinante_3x3(A):
            + A[0,2] * (A[1,0]*A[2,1] - A[1,1]*A[2,0]))
 
     return valor
+
