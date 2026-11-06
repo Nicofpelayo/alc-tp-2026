@@ -1250,15 +1250,12 @@ def obtenerPose2D(Hj, K):
 
     return Rj, tj
 
-
-### -------------------------------------------- TP: Ejercicio 4 --------------------------------------------
-
 def aplicarHomografia(H, pts):
     """
     H una homografía de 3 x 3
     pts los puntos 2D a transformar, como matriz de n x 2
     Retorna la matriz de n x 2 con los puntos transformados: para cada punto (x, y) calcula
-    q = H [x, y, 1]^T y divide por la tercera coordenada (pasaje de coordenadas homogéneas a cartesianas)
+    λ[u, v, 1] = H [x, y, 1]^T y divide por la tercera coordenada (λ)
     """
     transformados = np.zeros((pts.shape[0], 2))
     for i in range(pts.shape[0]):
@@ -1269,25 +1266,6 @@ def aplicarHomografia(H, pts):
         transformados[i, 0] = q[0] / q[2]
         transformados[i, 1] = q[1] / q[2]
     return transformados
-
-def circuloEnCancha(centro, radio, n):
-    """
-    centro el centro (U0, V0) de la circunferencia, en metros
-    radio el radio de la circunferencia, en metros
-    n la cantidad de divisiones de cada semicircunferencia
-    Retorna la matriz de (2n+2) x 2 con los puntos (U, V) de la circunferencia sobre el piso, recorridos en orden
-    (primero la mitad de arriba y después la de abajo) para poder dibujarla con plt.plot.
-    No usa seno ni coseno: de (U - U0)^2 + (V - V0)^2 = r^2 despeja V = V0 ± sqrt(r^2 - (U - U0)^2)
-    """
-    U0, V0 = centro
-    # Valores de U equiespaciados entre U0 - r y U0 + r
-    U = U0 - radio + 2 * radio * np.arange(n + 1) / n
-    # Altura de la semicircunferencia (np.abs evita negativos chicos por redondeo en los extremos)
-    altura = np.sqrt(np.abs(radio**2 - (U - U0)**2))
-    # Mitad de arriba (U creciente) y mitad de abajo (U decreciente) para cerrar la curva
-    mitad_arriba = np.vstack([U, V0 + altura]).T
-    mitad_abajo = np.vstack([U[::-1], V0 - altura[::-1]]).T
-    return np.vstack([mitad_arriba, mitad_abajo])
 
 ### -------------------------------------------- TP: Ejercicio 5--------------------------------------------
 
@@ -1502,17 +1480,17 @@ def centrar_coords(img_vecs,K):
     """
     img_vecs las coordenadas 2D (u, v) de los puntos de la imagen
     K la matriz intrínseca de la cámara
-    Retorna las coordenadas (x, y) centradas respecto del centro principal (cu, cv) de la cámara:
-    x_i = u_i - cu, y_i = v_i - cv
+    Retorna las coordenadas (x, y) centradas respecto del punto principal (u0, v0) de la cámara:
+    x_i = u_i - u0, y_i = v_i - v0
     """
-    #buscamos c_u, c_v en la matriz K
-    c_u = K[0][2]
-    c_v = K[1][2]
+    #buscamos el punto principal (u0, v0) en la matriz K
+    u0 = K[0][2]
+    v0 = K[1][2]
     coords_centradas = []
     for i in range(len(img_vecs)):
         #centramos las coords
-        x = img_vecs[i][0] - c_u
-        y = img_vecs[i][1] - c_v
+        x = img_vecs[i][0] - u0
+        y = img_vecs[i][1] - v0
         coords_centradas.append(np.array([x,y]))
     return coords_centradas
 
