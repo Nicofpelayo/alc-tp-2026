@@ -1543,7 +1543,8 @@ def aplicarPOSIT(obj_vecs, img_vecs, K, MaxIt, atol):
     img_vecs las coordenadas 2D observadas en la imagen
     K la matriz intrínseca de la cámara
     MaxIt la cantidad máxima de iteraciones
-    atol la tolerancia para determinar la convergencia
+    atol la tolerancia para determinar la convergencia (considerando que converge cuando la diferencia
+    del RMSE de la pose elegida entre dos iteraciones es menor a atol)
     Aplica los pasos de la sección "Iteración POSIT" del TP para estimar la pose de la cámara
     respecto del sistema de coordenadas del objeto.
     Retorna la matriz de rotación R y el vector de traslación t estimados. Si no encuentra una pose válida,
@@ -1565,6 +1566,7 @@ def aplicarPOSIT(obj_vecs, img_vecs, K, MaxIt, atol):
     fx = K[0, 0]
     m0 = coords[0]
     M0 = obj_vecs[0]
+    rmse_anterior = None
     for j in range(MaxIt):
         #calculamos b_u, b_v para resolver el sistema lineal con la pseudo-inversa
         b_u = calcular_b(coords, eps, "u")
@@ -1602,10 +1604,11 @@ def aplicarPOSIT(obj_vecs, img_vecs, K, MaxIt, atol):
         #actualizamos los factores de corrección de perspectiva epsilon_i
         for i in range(1,len(eps_nuevo)): 
             eps_nuevo[i]=producto_interno(A[i-1], k_elegido)/Z0_elegido
-        #verificamos si las correcciones convergieron
-        diferencias=np.abs(eps_nuevo-eps) 
-        if max(diferencias)<atol:
+        #verificamos convergencia, si no hay mejora en el RMSE respecto de la iteración anterior
+        rmse_actual = mejor_pose[1]
+        if rmse_anterior is not None and np.abs(rmse_anterior - rmse_actual) < atol:
             return R_elegido, t_elegido
+        rmse_anterior = rmse_actual
         eps=eps_nuevo #si no converge actualizamos eps, y sigue iterando
     return R_elegido, t_elegido
         
